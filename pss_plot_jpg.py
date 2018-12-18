@@ -62,8 +62,8 @@ def add_basemap(ax):
 
 
 def add_map_title(ax):
-    ax.set_title('VPs 3D Schonkirchen')
-
+    ax.set_title('VPs 3D Schonkirchen', fontsize=20)
+    
 
 def pss_plot_function():
     logger = Logger.getlogger()
@@ -76,7 +76,8 @@ def pss_plot_function():
     logger.info(f'geometry header: {gdf.head()}')
     ax = gdf.plot(figsize=(10, 10), alpha=0.5, c=vp_colors, markersize=MARKERSIZE)
     add_basemap(ax)
-    # add_map_title(ax)    
+    add_map_title(ax)
+    plt.tight_layout()    
     plt.show()
 
 
