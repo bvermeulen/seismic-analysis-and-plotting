@@ -8,12 +8,18 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 
-# MAP_FILE = 'BackgroundMap/3D_OMV_SKN2_DNS_Topo1800dpi_transformed.jpg'
-MAP_FILE = 'BackgroundMap/OMV_3D_33N_2.jpg'
-Image.MAX_IMAGE_PIXELS = 2000000000
 # EPSG = 4326 # WGS84
-# EPSG = 31286 # MGI (Ferro) / Austria East Zone plus corrections map  
-EPSG = 32633 # UTM Zone 33 N plus corrections for map 
+# MAP_FILE = r'BackgroundMap/3D_OMV_SKN2_DNS_Topo1800dpi_transformed.jpg'
+
+EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
+                     " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
+                     "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
+MAP_FILE = r'BackgroundMap/3D_31256.jpg'
+
+# EPSG = 32633 # UTM Zone 33 N  
+# MAP_FILE = r'BackgroundMap/OMV_3D_33N_2'
+
+Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 2
 
 
@@ -46,7 +52,8 @@ def add_basemap(ax):
     
     x_max = x_min + rows * dx
     y_min = y_max + cols * dy
-    logger.info(f'filename: {MAP_FILE}, (rows: {rows}, colums: {cols}), extent map crs:{EPSG}: {(x_min, x_max, y_min, y_max)}')
+    logger.info(f'filename: {MAP_FILE}, (rows: {rows}, colums: {cols}), \n'\
+                f'extent map crs:{EPSG_31256_adapted}: \n {(x_min, x_max, y_min, y_max)}')
 
     ax.imshow(basemap, extent=(x_min, x_max, y_min, y_max), interpolation='bilinear')
 
@@ -64,7 +71,7 @@ def pss_plot_function():
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     crs = {'init':'epsg:4326'}
     gdf = GeoDataFrame(crs=crs, geometry=vib_points_df)
-    gdf = gdf.to_crs(epsg=EPSG)
+    gdf = gdf.to_crs(EPSG_31256_adapted)
 
     logger.info(f'geometry header: {gdf.head()}')
     ax = gdf.plot(figsize=(10, 10), alpha=0.5, c=vp_colors, markersize=MARKERSIZE)
