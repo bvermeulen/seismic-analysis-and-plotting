@@ -43,7 +43,7 @@ def geo_stats():
             if 'needed' in key:
                 total_error += count
         
-    status_codes['Date'] = [str(_date)]
+    status_codes['Date'] = [_date]  # for formatted date use _date.strftime('%d-%m-%y')
     status_codes['Total'] = [total]
     status_codes['Total ex pickup'] = [total - status_codes['PICKUP all'][0]]
     try:
@@ -58,5 +58,5 @@ def geo_stats():
 
 if __name__ == "__main__":
     logformat = '%(asctime)s - %(levelname)s - %(message)s'
-    Logger.set_logger('geo_plot.log', logformat, 'DEBUG')
+    Logger.set_logger('geo_autoseis.log', logformat, 'DEBUG')
     geo_stats()
