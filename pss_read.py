@@ -188,6 +188,7 @@ def daterange(start_date, end_date):
 
 
 def get_dates():
+
     start_date = input('date (YYMMDD) [q - quit]: ')
     end_date = input('date (YYMMDD) [q - quit]: ')
     if start_date in ['q', 'Q'] or end_date in ['q', 'Q']:
