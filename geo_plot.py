@@ -1,5 +1,4 @@
 import contextily as ctx
-import numpy as np
 import pandas as pd
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 from itertools import cycle
 from Utils.plogger import Logger
-from geo_read import GeoData, get_date_range, daterange
+from geo_io import GeoData, get_date_range, daterange
 
 MARKERSIZE = 3
 MARKERSIZE_ERROR = 7
@@ -38,12 +37,10 @@ def plot_checked_stations():
     for _date, color in zip(daterange(start_date, end_date), cycle(color_cycle)):
         valid, geo_df = gd.read_geo_data(_date)
         if valid:
-            eastings = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]\
-                        ['LocalEasti'].tolist()
-            northings = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]\
-                         ['LocalNorth'].tolist()
-            gp_todo = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]\
-                         ['GP_TODO'].tolist()
+            geo_df = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]
+            eastings = geo_df['LocalEasti'].tolist()
+            northings = geo_df['LocalNorth'].tolist()
+            gp_todo = geo_df['GP_TODO'].tolist()
             
             assert len(eastings) == len(northings), "check easting/ northing"
             

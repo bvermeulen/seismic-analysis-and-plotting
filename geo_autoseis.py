@@ -1,4 +1,4 @@
-from geo_read import GeoData, get_date, get_date_range, daterange, append_df_to_excel
+from geo_io import GeoData, get_date, get_date_range, daterange, append_df_to_excel
 from pprint import pprint
 import pandas as pd
 import numpy as np
