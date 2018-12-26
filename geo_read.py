@@ -17,7 +17,7 @@ class GeoData:
     def __init__(self):
         self.logger = Logger.getlogger()
 
-    def read_geo_datafile(self, _date):
+    def read_geo_data(self, _date):
         read_is_valid = False
         _geo_file = ''.join([PREFIX, 
                             f'{_date.year:04}', f'{_date.month:02}', f'{_date.day:02}', 

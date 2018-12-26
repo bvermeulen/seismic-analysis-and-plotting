@@ -79,7 +79,7 @@ def summarise_geo_data():
         start_date, end_date = get_date_range()
     
     for _date in daterange(start_date, end_date):
-        valid, geo_df = gd.read_geo_datafile(_date)
+        valid, geo_df = gd.read_geo_data(_date)
         if valid:
             geo_stats(_date, geo_df)
 
@@ -90,7 +90,7 @@ def bat_histogram():
     valid = False
     while not valid:
         _date = get_date()
-        valid, geo_df = gd.read_geo_datafile(_date)
+        valid, geo_df = gd.read_geo_data(_date)
 
     days_in_field_type1 = geo_df['days_in_field_type1'].tolist()
     days_in_field_type2 = geo_df['days_in_field_type2'].tolist()
