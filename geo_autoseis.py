@@ -5,11 +5,55 @@ import numpy as np
 import matplotlib.pyplot as plt
 import collections
 from Utils.plogger import Logger
+import inspect
 
 
+# business rules
+thresholdtype1 = 20
+thresholdtype2 = 10
 th_high = 10
 th_mid = 5
 th_low = 0
+
+
+def calculate_bat_status(geo_df):
+    '''  extracts battery status with respect to days in field
+         input: geo_df
+         return: 3 lists: list days in field type 1, list days in field type 2
+                          list days over threshold
+    '''
+    logger = Logger.getlogger()
+    days_in_field = geo_df['days_in_field'].tolist()
+    bat_types = geo_df['Battype'].tolist()
+    assert len(days_in_field) == len(bat_types), "check match battype and days_in_field"
+
+    days_in_field_type1, days_in_field_type2, days_over_threshold = [], [], []
+    for bat in zip(bat_types, days_in_field):
+        try:
+            bat_type = int(bat[0])
+        except ValueError:
+            logger.info(f'{inspect.stack()[0][3]} - Exception ValueError: {bat}')
+            bat_type = 0
+            
+        if pd.isnull(bat[1]) or bat_type not in [1, 2]:
+            days_in_field_type1.append(np.NaN)
+            days_in_field_type2.append(np.NaN)
+            days_over_threshold.append(np.NaN)
+
+        elif bat_type == 1:
+            days_in_field_type1.append(bat[1])
+            days_in_field_type2.append(np.NaN)
+            days_over_threshold.append(bat[1] - thresholdtype1)
+
+        elif bat_type == 2:
+            days_in_field_type1.append(np.NaN)
+            days_in_field_type2.append(bat[1])
+            days_over_threshold.append(bat[1] - thresholdtype2)
+
+        else:
+            assert False, "this option cannot happen, check your code"
+
+    return days_in_field_type1, days_in_field_type2, days_over_threshold
 
 
 def geo_stats(_date, geo_df):
@@ -37,8 +81,10 @@ def geo_stats(_date, geo_df):
 
     # make list of 'GP_TODO' column for rows for specific date '_date'
     geo_status = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]['GP_TODO'].tolist()
-    # make list of number of days over threshold
-    bat_status = [val for val in geo_df['days_over_threshold'].tolist() if not pd.isnull(val)]
+
+    # get the list of batteries days over threshold
+    _, _, days_over_threshold = calculate_bat_status(geo_df)
+    days_over_threshold = [val for val in days_over_threshold if not pd.isnull(val)]
 
     total = 0
     total_error = 0
@@ -49,8 +95,8 @@ def geo_stats(_date, geo_df):
         if 'needed' in key:
             total_error += count
 
-    status_codes['total bats'] = len(bat_status)
-    for days in bat_status:
+    status_codes['total bats'] = len(days_over_threshold)
+    for days in days_over_threshold:
         if days >= th_high:
             status_codes[f'bats {th_high}d'] += 1
         elif days >= th_mid:
@@ -66,6 +112,7 @@ def geo_stats(_date, geo_df):
     try:
         status_codes['Perc. bad'] = total_error / status_codes['Total ex pickup']
     except ZeroDivisionError:
+        logger.info(f'{inspect.stack()[0][3]} - Exception ZeroDivisionError: {total_error}')
         status_codes['Perc. bad'] = np.NaN
 
     logger.info(f'date: {_date} -- status codes:\n{status_codes}')
@@ -92,9 +139,8 @@ def bat_histogram():
         _date = get_date()
         valid, geo_df = gd.read_geo_data(_date)
 
-    days_in_field_type1 = geo_df['days_in_field_type1'].tolist()
-    days_in_field_type2 = geo_df['days_in_field_type2'].tolist()
-    days_over_threshold = geo_df['days_over_threshold'].tolist()
+    days_in_field_type1, days_in_field_type2, days_over_threshold =\
+        calculate_bat_status(geo_df)
     logger.info(f"count:\n{geo_df.count()}")
 
     bins = 40
@@ -130,10 +176,8 @@ if __name__ == "__main__":
     logformat = '%(asctime)s - %(levelname)s - %(message)s'
     Logger.set_logger('geo_autoseis.log', logformat, 'DEBUG')
 
-    answer = input('Summarise geo date? [Y/N] ')
-    if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
+    if input('Summarise geo date? [Y/N] ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
         summarise_geo_data()
     
-    answer = input('Display histogram? [Y/N] ')
-    if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
+    if input('Display histogram? [Y/N] ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
         bat_histogram()

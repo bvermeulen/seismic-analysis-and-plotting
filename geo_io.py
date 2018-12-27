@@ -4,12 +4,11 @@ import numpy as np
 from openpyxl import load_workbook
 from datetime import date, timedelta
 from Utils.plogger import Logger
+import inspect
 
 
 PREFIX = r'autoseis_data\OUT_'
 EXCEL_SUMMARY_FILE = 'geo_summary.xlsx'
-thresholdtype1 = 20
-thresholdtype2 = 10
 
 
 class GeoData:
@@ -31,53 +30,35 @@ class GeoData:
             try:
                 self.geo_df = pd.read_excel(_geo_file[0])
                 self.date = _date
-                self.add_bat_status_to_df()
+                self.add_bat_days_in_field_to_df()
                 read_is_valid = True
 
             except FileNotFoundError:
-                pass
+                self.logger.info(f'{inspect.stack()[0][3]} - Exception FileNotFoundError": {_geo_file[0]}')
         
         if read_is_valid:
             return True, self.geo_df
         else:    
             return False, None
 
-    def add_bat_status_to_df(self):
-        days_in_field_type1 = []
-        days_in_field_type2 = []
-        days_over_threshold = []
-        batteries = zip(self.geo_df['Battype'].tolist(), self.geo_df['BATSTART'].tolist())
-        for battery in batteries:
-            if not pd.isnull(battery[1]):
-                _battery = str(battery[1])
-                _year = int(_battery[0:4])
-                _julianday = int(_battery[4:7])
+    def add_bat_days_in_field_to_df(self):
+        days_in_field = []
+        list_battery_starts = self.geo_df['BATSTART'].tolist()
+        for battery_start in list_battery_starts:
+            battery_start = str(battery_start)
+            try:
+                _year = int(battery_start[0:4])
+                _julianday = int(battery_start[4:7])
                 _date_in_field = date(_year, 1, 1) + timedelta(_julianday)
                 _days_in_field = (self.date - _date_in_field).days
-            else:
+            except ValueError:
+                self.logger.info(f'{inspect.stack()[0][3]} - Exception ValueError: {battery_start}')
                 _days_in_field = np.NaN
-
-            if not pd.isnull(_days_in_field) and int(battery[0]) in [1, 2]:
-                if int(battery[0]) == 1:
-                    days_in_field_type1.append(_days_in_field)
-                    days_in_field_type2.append(np.NaN)
-                    days_over_threshold.append(_days_in_field - thresholdtype1)
-                elif int(battery[0]) == 2:
-                    days_in_field_type1.append(np.NaN)
-                    days_in_field_type2.append(_days_in_field)
-                    days_over_threshold.append(_days_in_field - thresholdtype2)
-            else:
-                days_in_field_type1.append(np.NaN)
-                days_in_field_type2.append(np.NaN)
-                days_over_threshold.append(np.NaN)
-
-        assert len(days_in_field_type1) == len(days_in_field_type2), "length days_in_field_types not equal"
-        assert len(days_over_threshold) == len(days_in_field_type2), "length threshold not equal"
+            
+            days_in_field.append(_days_in_field)
 
         # add the columns to the dataframe
-        self.geo_df['days_in_field_type1'] = days_in_field_type1
-        self.geo_df['days_in_field_type2'] = days_in_field_type2
-        self.geo_df['days_over_threshold'] = days_over_threshold
+        self.geo_df['days_in_field'] = days_in_field
 
 
 def get_date():
@@ -139,6 +120,7 @@ def append_df_to_excel(df, filename=EXCEL_SUMMARY_FILE, sheet_name='Sheet1',
 
     Returns: None
     """
+    logger = Logger.getlogger()
     # ignore [engine] parameter if it was passed
     if 'engine' in to_excel_kwargs:
         to_excel_kwargs.pop('engine')
@@ -158,7 +140,7 @@ def append_df_to_excel(df, filename=EXCEL_SUMMARY_FILE, sheet_name='Sheet1',
         writer.sheets = {ws.title:ws for ws in writer.book.worksheets}
     except FileNotFoundError:
         # file does not exist yet, we will create it
-        pass
+        logger.info(f'{inspect.stack()[0][3]} - Exception FileNotFoundError {filename}')
 
     if startrow is None:
         startrow = 0
