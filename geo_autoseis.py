@@ -158,7 +158,7 @@ def output_overthreshold_to_excel(geo_df, days_over_threshold):
     bat_df = pd.DataFrame(bat_status_list)
     pprint(bat_df)
     filename = ''.join([_date.strftime('%Y%m%d')[2:9], '_bat_status.xlsx'])
-    print(f'filename: {filename}')
+    print(f'filename:\ {filename}')
     append_df_to_excel(bat_df, filename=filename, index=False, header=True)
     
 
