@@ -4,8 +4,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import collections
+from datetime import date
 from Utils.plogger import Logger
 import inspect
+
 
 
 # business rules
@@ -22,7 +24,6 @@ def calculate_bat_status(geo_df):
          return: 3 lists: list days in field type 1, list days in field type 2
                           list days over threshold
     '''
-    logger = Logger.getlogger()
     days_in_field = geo_df['days_in_field'].tolist()
     bat_types = geo_df['Battype'].tolist()
     assert len(days_in_field) == len(bat_types), "check match battype and days_in_field"
@@ -77,7 +78,6 @@ def geo_stats(_date, geo_df):
                     f'bats {th_low}d': 0,
                     f'bats {th_mid}d': 0,
                     f'bats {th_high}d': 0}
-    logger = Logger.getlogger()
 
     # make list of 'GP_TODO' column for rows for specific date '_date'
     geo_status = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]['GP_TODO'].tolist()
@@ -115,13 +115,14 @@ def geo_stats(_date, geo_df):
         logger.info(f'{inspect.stack()[0][3]} - Exception ZeroDivisionError: {total_error}')
         status_codes['Perc. bad'] = np.NaN
 
+    # save the summary to excel
     logger.info(f'date: {_date} -- status codes:\n{status_codes}')
     append_df_to_excel(pd.DataFrame(status_codes), index=False, header=False)
 
 
 def summarise_geo_data():
-    start_date = -1
     gd = GeoData()
+    start_date = -1
     while start_date == -1:
         start_date, end_date = get_date_range()
     
@@ -131,8 +132,37 @@ def summarise_geo_data():
             geo_stats(_date, geo_df)
 
 
-def bat_histogram():
-    logger = Logger.getlogger()
+def output_overthreshold_to_excel(geo_df, days_over_threshold):
+    bat_status_list = {'Date': [], 
+                       'Pointcode': [],
+                       'LocalEasting': [],
+                       'LocalNorthing': [],
+                       'Bat_type': [],
+                       'Days_in_field': [],
+                       'Daysoverthreshold': [],
+                      }
+
+    for index, row in geo_df.iterrows():
+        if days_over_threshold[index] >= 0:
+            _date = date(int(row['OUTDATE'][0:4]),
+                         int(row['OUTDATE'][4:6]),
+                         int(row['OUTDATE'][6:8])) 
+            bat_status_list['Date'].append(_date) 
+            bat_status_list['Pointcode'].append(row['STATIONVIX'])
+            bat_status_list['LocalEasting'].append(row['LocalEasti'])
+            bat_status_list['LocalNorthing'].append(row['LocalNorth'])
+            bat_status_list['Bat_type'].append(row['Battype'])
+            bat_status_list['Days_in_field'].append(row['days_in_field'])
+            bat_status_list['Daysoverthreshold'].append(days_over_threshold[index])
+
+    bat_df = pd.DataFrame(bat_status_list)
+    pprint(bat_df)
+    filename = ''.join([_date.strftime('%Y%m%d')[2:9], '_bat_status.xlsx'])
+    print(f'filename: {filename}')
+    append_df_to_excel(bat_df, filename=filename, index=False, header=True)
+    
+
+def bat_histogram_and_output_hreshold_to_excel():
     gd = GeoData()
     valid = False
     while not valid:
@@ -142,6 +172,7 @@ def bat_histogram():
     days_in_field_type1, days_in_field_type2, days_over_threshold =\
         calculate_bat_status(geo_df)
     logger.info(f"count:\n{geo_df.count()}")
+    output_overthreshold_to_excel(geo_df, days_over_threshold)
 
     bins = 40
     maxvalue = 4500
@@ -173,11 +204,13 @@ def bat_histogram():
     plt.show()
 
 if __name__ == "__main__":
+    global logger
     logformat = '%(asctime)s - %(levelname)s - %(message)s'
     Logger.set_logger('geo_autoseis.log', logformat, 'DEBUG')
+    logger = Logger.getlogger()
 
-    if input('Summarise geo date? [Y/N] ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
+    if input('Summarise geo date? [Y/N] ')[0] in ['y', 'Y']:
         summarise_geo_data()
     
-    if input('Display histogram? [Y/N] ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
-        bat_histogram()
+    if input('Display histogram? [Y/N] ')[0] in ['y', 'Y']:
+        bat_histogram_and_output_hreshold_to_excel()
