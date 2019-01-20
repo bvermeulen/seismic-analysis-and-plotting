@@ -13,10 +13,9 @@ MARKERSIZE_ERROR = 7
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-
+logger = Logger.getlogger()
 
 def add_basemap(ax, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
-    logger = Logger.getlogger()
     xmin, xmax, ymin, ymax = ax.axis()
     logger.info(f'url: {url}')
     basemap, extent = ctx.bounds2img(xmin, ymin, xmax, ymax, zoom=zoom, url=url)
@@ -71,6 +70,9 @@ def plot_checked_stations():
     plt.show()
 
 if __name__ == "__main__":
-    logformat = '%(asctime)s - %(levelname)s - %(message)s'
-    Logger.set_logger('geo_plot.log', logformat, 'DEBUG')
+    nl = '\n'
+    logger.info(f'{nl}=================================='\
+                f'{nl}===>   Running: geo_plot.py   <==='\
+                f'{nl}==================================')
+
     plot_checked_stations()

@@ -9,13 +9,16 @@ from Utils.plogger import Logger
 import inspect
 
 
-
 # business rules
 thresholdtype1 = 20
 thresholdtype2 = 10
 th_high = 10
 th_mid = 5
 th_low = 0
+
+# other constants
+logger = Logger.getlogger()
+EXCEL_SUMMARY_FILE = 'autoseis_summary.xlsx'
 
 
 def calculate_bat_status(geo_df):
@@ -117,7 +120,9 @@ def geo_stats(_date, geo_df):
 
     # save the summary to excel
     logger.info(f'date: {_date} -- status codes:\n{status_codes}')
-    append_df_to_excel(pd.DataFrame(status_codes), index=False, header=False)
+
+    append_df_to_excel(pd.DataFrame(status_codes),EXCEL_SUMMARY_FILE, 
+                       index=False, header=False)
 
 
 def summarise_geo_data():
@@ -156,18 +161,18 @@ def output_overthreshold_to_excel(geo_df, days_over_threshold):
             bat_status_list['Daysoverthreshold'].append(days_over_threshold[index])
 
     bat_df = pd.DataFrame(bat_status_list)
-    pprint(bat_df)
     filename = ''.join([_date.strftime('%Y%m%d')[2:9], '_bat_status.xlsx'])
-    print(f'filename:\ {filename}')
     append_df_to_excel(bat_df, filename=filename, index=False, header=True)
     
 
-def bat_histogram_and_output_hreshold_to_excel():
+def bat_histogram_and_output_threshold_to_excel():
     gd = GeoData()
     valid = False
     while not valid:
         _date = get_date()
         valid, geo_df = gd.read_geo_data(_date)
+
+    # TODO -- insert active line range
 
     days_in_field_type1, days_in_field_type2, days_over_threshold =\
         calculate_bat_status(geo_df)
@@ -204,13 +209,14 @@ def bat_histogram_and_output_hreshold_to_excel():
     plt.show()
 
 if __name__ == "__main__":
-    global logger
-    logformat = '%(asctime)s - %(levelname)s - %(message)s'
-    Logger.set_logger('geo_autoseis.log', logformat, 'DEBUG')
-    logger = Logger.getlogger()
+
+    nl = '\n'
+    logger.info(f'{nl}=================================='\
+                f'{nl}===> Running: geo_autoseis.py <==='\
+                f'{nl}==================================')
 
     if input('Summarise geo date? [Y/N] ')[0] in ['y', 'Y']:
         summarise_geo_data()
     
     if input('Display histogram? [Y/N] ')[0] in ['y', 'Y']:
-        bat_histogram_and_output_hreshold_to_excel()
+        bat_histogram_and_output_threshold_to_excel()

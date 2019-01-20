@@ -8,13 +8,16 @@ import inspect
 
 
 PREFIX = r'autoseis_data\OUT_'
-EXCEL_SUMMARY_FILE = 'geo_summary.xlsx'
 
+# start logger
+logformat = '%(asctime)s - %(levelname)s - %(message)s'
+Logger.set_logger('autoseis.log', logformat, 'DEBUG')
+logger = Logger.getlogger()
 
 class GeoData:
     '''  method for handling Geo data '''
     def __init__(self):
-        self.logger = Logger.getlogger()
+        pass
 
     def read_geo_data(self, _date):
         read_is_valid = False
@@ -22,11 +25,9 @@ class GeoData:
                             f'{_date.year:04}', f'{_date.month:02}', f'{_date.day:02}', 
                             '*.xlsx'])
         _geo_file = glob.glob(_geo_file)
-        self.logger.info(f'filename: {_geo_file}')
+        logger.info(f'filename: {_geo_file}')
 
-        if len(_geo_file) != 1:
-            pass
-        else:
+        if len(_geo_file) == 1:
             try:
                 self.geo_df = pd.read_excel(_geo_file[0])
                 self.date = _date
@@ -34,7 +35,9 @@ class GeoData:
                 read_is_valid = True
 
             except FileNotFoundError:
-                self.logger.info(f'{inspect.stack()[0][3]} - Exception FileNotFoundError": {_geo_file[0]}')
+                logger.info(f'{inspect.stack()[0][3]} - Exception FileNotFoundError": {_geo_file[0]}')
+        else:
+            pass
         
         if read_is_valid:
             return True, self.geo_df
@@ -43,16 +46,29 @@ class GeoData:
 
     def add_bat_days_in_field_to_df(self):
         days_in_field = []
-        list_battery_starts = self.geo_df['BATSTART'].tolist()
-        for battery_start in list_battery_starts:
-            battery_start = str(battery_start)
+        for _, row in self.geo_df.iterrows():
+            bat_start = str(row['BATSTART'])
             try:
-                _year = int(battery_start[0:4])
-                _julianday = int(battery_start[4:7])
-                _date_in_field = date(_year, 1, 1) + timedelta(_julianday)
-                _days_in_field = (self.date - _date_in_field).days
+                _year = int(bat_start[0:4])
+                _julianday = int(bat_start[4:7])
+                _date_bat_start = date(_year, 1, 1) + timedelta(_julianday)
             except ValueError:
-                self.logger.info(f'{inspect.stack()[0][3]} - Exception ValueError: {battery_start}')
+                logger.info(f'{inspect.stack()[0][3]} - Exception ValueError - bat_start: '
+                            f'{bat_start}')
+                _date_bat_start = date(1900, 1, 1)
+            
+            bat_start_new = str(row['BATSTART_NEW'])
+            try:
+                _year = int(bat_start_new[0:4])
+                _julianday = int(bat_start_new[4:7])
+                _date_bat_start_new = date(_year, 1, 1) + timedelta(_julianday)
+            except ValueError:
+                _date_bat_start_new = date(1900, 1, 1)
+
+            _date_bat_start = max(_date_bat_start_new, _date_bat_start)
+            if _date_bat_start != date(1900, 1, 1):
+                _days_in_field = (self.date - _date_bat_start).days
+            else:
                 _days_in_field = np.NaN
             
             days_in_field.append(_days_in_field)
@@ -98,8 +114,7 @@ def get_date_range():
     return start_date, end_date
 
 
-def append_df_to_excel(df, filename=EXCEL_SUMMARY_FILE, sheet_name='Sheet1', 
-                       startrow=None,
+def append_df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
                        **to_excel_kwargs):
     """
     Append a DataFrame [df] to existing Excel file [filename]
@@ -120,7 +135,6 @@ def append_df_to_excel(df, filename=EXCEL_SUMMARY_FILE, sheet_name='Sheet1',
 
     Returns: None
     """
-    logger = Logger.getlogger()
     # ignore [engine] parameter if it was passed
     if 'engine' in to_excel_kwargs:
         to_excel_kwargs.pop('engine')
