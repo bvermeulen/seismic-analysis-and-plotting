@@ -18,6 +18,7 @@ EPSG_WGS84 = 4326
 ZOOM = 13
 HIGH=65
 MEDIUM=45
+maptitle = ('VPs 3D Schonkirchen', 20)
 logger = Logger.getlogger()
 
 def group_forces(forces, high, medium):
@@ -64,6 +65,8 @@ def pss_plot_function():
                   label=force_attrs[ftype][1],
                   markersize=MARKERSIZE,)
 
+    nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
+
     swath_polygons = swath_selection()
     swath_boundary = GeoSeries(swath_polygons, crs=EPSG_31256_adapted)
     swath_boundary = swath_boundary.to_crs(epsg=EPSG_basemap)
@@ -73,7 +76,7 @@ def pss_plot_function():
     logger.info(f'zoom factor: {ZOOM}')
 
     ax.legend(title='Legend')
-    ax.set_title(f'VPs 3D Schonkirchen', fontsize=20)
+    ax.set_title(maptitle[0], fontsize=maptitle[1])
     plt.show()
 
 

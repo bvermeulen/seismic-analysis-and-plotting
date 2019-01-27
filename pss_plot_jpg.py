@@ -19,8 +19,25 @@ EPSG_WGS84 = 4326
 
 Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 5
+HIGH=65
+MEDIUM=45
+maptitle = ('VPs 3D Schonkirchen', 20)
 logger = Logger.getlogger()
 
+
+def group_forces(forces, high, medium):
+    grouped_forces = []
+    for force in forces:
+        if force > high:
+            grouped_forces.append('1HIGH')
+        elif force > medium:
+            grouped_forces.append('2MEDIUM')
+        elif force <= medium:
+            grouped_forces.append('3LOW')
+        else:
+            assert False, "this is an invalid option, check the code"
+    
+    return grouped_forces
 
 def add_basemap(ax):
     '''  load the map in picture format and the georeference information from the jgW file 
@@ -58,21 +75,25 @@ def add_basemap(ax):
     ax.axis(extent_data)
 
 
-def add_map_title(ax):
-    ax.set_title('VPs 3D Schonkirchen', fontsize=20)
-    
-
 def pss_plot_function():
     _, ax = plt.subplots(figsize=(10, 10))    
+
     vp_longs, vp_lats, vp_forces = read_pss_for_date_range()
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     crs = {'init': f'epsg:{EPSG_WGS84}'}
     gdf = GeoDataFrame(crs=crs, geometry=vib_points_df)
     gdf = gdf.to_crs(crs=EPSG_31256_adapted)
-    gdf['force'] = vp_forces
-    cmap = ListedColormap(['r', 'c', 'y'])  # order seems to be alfabetically?
-    gdf.plot(ax=ax, alpha=0.5, column='force', cmap=cmap, markersize=MARKERSIZE,
-             legend=True)
+    vp_forces = group_forces(vp_forces, HIGH, MEDIUM)
+    gdf['forces'] = vp_forces
+    force_attrs = { '1HIGH': ['red', f'high > {HIGH}'],
+                    '2MEDIUM': ['cyan', f'medium > {MEDIUM}'],
+                    '3LOW': ['yellow', f'low <= {MEDIUM}'],}
+    
+    for ftype, data in gdf.groupby('forces'):
+        data.plot(ax=ax,
+                  color=force_attrs[ftype][0],
+                  label=force_attrs[ftype][1],
+                  markersize=MARKERSIZE,)
 
     nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
 
@@ -81,8 +102,8 @@ def pss_plot_function():
     swath_boundary.plot(ax=ax, alpha=0.2, color='red')
 
     add_basemap(ax)
-    add_map_title(ax)
-    plt.tight_layout()    
+    ax.legend(title='Legend')
+    ax.set_title(maptitle[0], fontsize=maptitle[1])
     plt.show()
 
 
