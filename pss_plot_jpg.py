@@ -2,25 +2,24 @@ from pss_read import read_pss_for_date_range
 from Utils.plogger import Logger
 import numpy as np
 import geopandas as gpd
-from geopandas import GeoDataFrame
+from geopandas import GeoDataFrame, GeoSeries
 from shapely.geometry import Point
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap 
 from PIL import Image
+from geo_io import swath_selection
 
 
-# EPSG = 4326 # WGS84
-# MAP_FILE = r'BackgroundMap/3D_OMV_SKN2_DNS_Topo1800dpi_transformed.jpg'
-
+MAP_FILE = r'BackgroundMap/3D_31256.jpg'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-MAP_FILE = r'BackgroundMap/3D_31256.jpg'
-
-# EPSG = 32633 # UTM Zone 33 N  
-# MAP_FILE = r'BackgroundMap/OMV_3D_33N_2'
+EPSG_basemap = 3857 
+EPSG_WGS84 = 4326
 
 Image.MAX_IMAGE_PIXELS = 2000000000
-MARKERSIZE = 2
+MARKERSIZE = 5
+logger = Logger.getlogger()
 
 
 def add_basemap(ax):
@@ -30,8 +29,6 @@ def add_basemap(ax):
          :input: ax 
          :output: none  
     '''
-    logger = Logger.getlogger()
-
     # obtain the extent of the data to restore later
     extent_data = ax.axis()
     logger.info(f'extent data: {extent_data}')
@@ -66,15 +63,23 @@ def add_map_title(ax):
     
 
 def pss_plot_function():
-    logger = Logger.getlogger()
-    vp_longs, vp_lats, vp_colors = read_pss_for_date_range()
+    _, ax = plt.subplots(figsize=(10, 10))    
+    vp_longs, vp_lats, vp_forces = read_pss_for_date_range()
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
-    crs = {'init':'epsg:4326'}
+    crs = {'init': f'epsg:{EPSG_WGS84}'}
     gdf = GeoDataFrame(crs=crs, geometry=vib_points_df)
-    gdf = gdf.to_crs(EPSG_31256_adapted)
+    gdf = gdf.to_crs(crs=EPSG_31256_adapted)
+    gdf['force'] = vp_forces
+    cmap = ListedColormap(['r', 'c', 'y'])  # order seems to be alfabetically?
+    gdf.plot(ax=ax, alpha=0.5, column='force', cmap=cmap, markersize=MARKERSIZE,
+             legend=True)
 
-    logger.info(f'geometry header: {gdf.head()}')
-    ax = gdf.plot(figsize=(10, 10), alpha=0.5, c=vp_colors, markersize=MARKERSIZE)
+    nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
+
+    swath_polygons = swath_selection()
+    swath_boundary = GeoSeries(swath_polygons, crs=EPSG_31256_adapted)
+    swath_boundary.plot(ax=ax, alpha=0.2, color='red')
+
     add_basemap(ax)
     add_map_title(ax)
     plt.tight_layout()    
@@ -82,6 +87,9 @@ def pss_plot_function():
 
 
 if __name__ == "__main__":
-    logformat = '%(asctime)s - %(levelname)s - %(message)s'
-    Logger.set_logger('pss_plot_jpg.log', logformat, 'INFO')
+    nl = '\n'
+    logger.info(f'{nl}======================================'\
+                f'{nl}===>   Running: pss_plot_jpg.py   <==='\
+                f'{nl}======================================')
+
     pss_plot_function()

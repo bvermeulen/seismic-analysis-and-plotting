@@ -7,8 +7,6 @@ from Utils.plogger import Logger
 
 
 PREFIX = r'RAW_PSS\PSS_20'
-HIGH_FORCE = 65
-MEDIUM_FORCE = 40
 LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
@@ -80,7 +78,7 @@ class PssData:
         logger = Logger.getlogger()
         vp_lats = []
         vp_longs = []
-        colors = []
+        vp_forces = []
         
         # make a list of all records
         list_record = set()
@@ -115,20 +113,13 @@ class PssData:
                 _force /= _count
                 vp_lats.append(_vp_lat)
                 vp_longs.append(_vp_long)
-                if _force > HIGH_FORCE:
-                    colors.append('red')
-                elif _force > MEDIUM_FORCE:
-                    colors.append('blue')
-                elif _force <= MEDIUM_FORCE:
-                    colors.append('green')
-                else:
-                    assert False, "something wrong in force assignment"
+                vp_forces.append(_force)
 
             except ZeroDivisionError:
                 pass
 
-        logger.debug(f'(vp_lat, vp_long, color): {list(zip(vp_lats, vp_longs, colors))}')
-        return vp_longs, vp_lats, colors
+        logger.debug(f'(vp_lat, vp_long, force): {list(zip(vp_lats, vp_longs, vp_forces))}')
+        return vp_longs, vp_lats, vp_forces
 
 
 def read_pss_file_csv(csv_file):
@@ -212,7 +203,7 @@ def get_dates():
 def read_pss_for_date_range():
     '''  reads pss data for a date range - interactive input through console
     :input: none
-    :output: vp_lats, vp_longs, vp_colors  [numpy arrays]
+    :output: vp_lats, vp_longs, vp_forces  [numpy arrays]
     '''
     logger = Logger.getlogger()
     start_date = -1
@@ -221,7 +212,7 @@ def read_pss_for_date_range():
     
     vp_lats = np.array([])
     vp_longs = np.array([])
-    vp_colors = np.array([])
+    vp_forces = np.array([])
 
     for day in daterange(start_date, end_date):
         date_pss = str(f'{day.year:02}') + str(f'{day.month:02}') + str(f'{day.day:02}')
@@ -229,12 +220,12 @@ def read_pss_for_date_range():
         if pss_data == -1:
             continue
         pss = PssData(pss_data)
-        _vp_longs, _vp_lats, _colors = pss.vp_df()
+        _vp_longs, _vp_lats, _forces = pss.vp_df()
         vp_lats = np.append(vp_lats, _vp_lats)
         vp_longs = np.append(vp_longs, _vp_longs)
-        vp_colors = np.append(vp_colors, _colors)
+        vp_forces = np.append(vp_forces, _forces)
         logger.info(f'length: {len(_vp_lats)}')
 
     logger.info(f'total length: {len(vp_lats)}')
 
-    return vp_longs, vp_lats, vp_colors
+    return vp_longs, vp_lats, vp_forces

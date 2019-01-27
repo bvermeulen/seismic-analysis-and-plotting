@@ -3,15 +3,19 @@ import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 from datetime import date, timedelta
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
+from shapely.ops import cascaded_union
 from Utils.plogger import Logger
 import inspect
+import re
 
 
 PREFIX = r'autoseis_data\OUT_'
 
 # start logger
 logformat = '%(asctime)s - %(levelname)s - %(message)s'
-Logger.set_logger('autoseis.log', logformat, 'DEBUG')
+Logger.set_logger('autoseis.log', logformat, 'INFO')
 logger = Logger.getlogger()
 
 class GeoData:
@@ -164,3 +168,77 @@ def append_df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
 
     # save the workbook
     writer.save()
+
+
+def transformation(point):
+    ''' transformation from RL-RP to Easting/ Northting
+        Origin point taken from SPS receiver point 3400-4213
+        Azimuth angle of prospect is 30 dregrees
+
+        :input: point as tuple (RL, RP)
+        :output: point as tuple (Easting, Northing)
+    '''
+    azimuth = (np.pi * 30 / 180 )  # converted to radians
+    dx_crossline = 10.0 * np.cos(azimuth)
+    dy_crossline = -10.0 * np.sin(azimuth)
+    dx_inline = -10.0 * np.sin(azimuth)
+    dy_inline = -10.0 * np.cos(azimuth)
+    POINT_0 = (3400., 4213.)
+    COORD_0 = (491074., 5358167.)
+
+    transformed_point =  ((point[0] - POINT_0[0]) * dx_crossline +
+                          (point[1] - POINT_0[1]) * dx_inline + COORD_0[0],
+                          (point[0] - POINT_0[0]) * dy_crossline +
+                          (point[1] - POINT_0[1]) * dy_inline + COORD_0[1])
+    return transformed_point
+
+
+def swath_selection():
+    ''' Selection of swath. Swath information taken from the file: 
+           Points+Lines_SW_24_stay.xlsx
+        Manual inpput check if there exists at least one valid swath otherwise
+        repeat the input
+
+        retrieves the extent for each swath, transforms it to Easting,Northing and
+        unions the swaths to one polynom
+
+        :input: None
+        :output: swaths_polynom of type Polynom of Shapely
+
+    '''    
+    swath_file = r'.\Points+Lines_SW_24_stay.xlsx'
+    swath_df = pd.read_excel(swath_file, skiprows=5)
+    valid_swaths = swath_df['Swath'].tolist()
+    valid = False
+    swaths = []
+    while not valid:
+        _swaths = [int(num[0]) for num in re.finditer(r'\d+', input('Swaths to be included: [0 for none]: '))]
+        if len(_swaths) == 1 and _swaths[0] == 0:
+            valid = True
+            break
+             
+        for swath in _swaths:
+            if swath in valid_swaths:
+                swaths.append(swath)
+        
+        if swaths:
+            valid = True
+
+    swath_polygons = []
+    for swath in swaths:
+        sd = swath_df[swath_df['Swath'] == swath].iloc[0]
+
+        point1 = (sd['1st RL'], sd['1st GP'])
+        point2 = (sd['1st RL'], sd['last GP'])
+        point3 = (sd['last RL'], sd['last GP'])
+        point4 = (sd['last RL'], sd['1st GP'])
+    
+        point1_coord = transformation(point1)
+        point2_coord = transformation(point2)
+        point3_coord = transformation(point3)
+        point4_coord = transformation(point4)
+        
+        swath_polygon = Polygon([point1_coord, point2_coord, point3_coord, point4_coord])
+        swath_polygons.append(swath_polygon)
+
+    return cascaded_union(swath_polygons)
