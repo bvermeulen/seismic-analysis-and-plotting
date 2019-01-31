@@ -66,8 +66,11 @@ def swath_selection():
         retrieves the extent for each swath, transforms it to Easting,Northing and
         unions the swaths to one polynom
 
-        :input: None
-        :output: swaths_polynom of type Polynom of Shapely
+        Parameters: None
+        Returns:
+        :swaths: list of selelected swaths
+        :swaths_pnt_polygon: union of selected swaths polygon in points (RL, RP)
+        :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
 
     '''    
     swath_file = r'.\Points+Lines_SW_24_stay.xlsx'
@@ -76,7 +79,7 @@ def swath_selection():
     valid = False
     swaths = []
     while not valid:
-        _swaths = [int(num[0]) for num in re.finditer(r'\d+', input('Swaths to be included: [0 for none]: '))]
+        _swaths = [int(num[0]) for num in re.finditer(r'\d+', input('Swaths to be included: [0 for all]: '))]
         if len(_swaths) == 1 and _swaths[0] == 0:
             valid = True
             break
@@ -88,7 +91,8 @@ def swath_selection():
         if swaths:
             valid = True
 
-    swath_polygons = []
+    swaths_pnt_polygon = []
+    swaths_geo_polygon = []
     for swath in swaths:
         sd = swath_df[swath_df['Swath'] == swath].iloc[0]
 
@@ -96,16 +100,26 @@ def swath_selection():
         point2 = (sd['1st RL'], sd['last GP'])
         point3 = (sd['last RL'], sd['last GP'])
         point4 = (sd['last RL'], sd['1st GP'])
-    
+
         point1_coord = transformation(point1)
         point2_coord = transformation(point2)
         point3_coord = transformation(point3)
         point4_coord = transformation(point4)
         
-        swath_polygon = Polygon([point1_coord, point2_coord, point3_coord, point4_coord])
-        swath_polygons.append(swath_polygon)
+        _polygon = Polygon([point1_coord, point2_coord, point3_coord, point4_coord])
+        swaths_geo_polygon.append(_polygon)
 
-    return cascaded_union(swath_polygons)
+        # give a little extra margin for points to be selected on the boundary
+        point1 = (sd['1st RL'] - 1, sd['1st GP'] - 1)
+        point2 = (sd['1st RL'] - 1, sd['last GP'] + 1)
+        point3 = (sd['last RL'] + 1, sd['last GP'] + 1)
+        point4 = (sd['last RL'] + 1, sd['1st GP'] - 1)
+
+        _polygon = Polygon([point1, point2, point3, point4])
+        swaths_pnt_polygon.append(_polygon)
+
+
+    return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
 
 class GeoData:
@@ -171,25 +185,35 @@ class GeoData:
         self.geo_df['days_in_field'] = days_in_field
 
     def select_geo_data(self):
+        ''' method to select geo_data
+            Parameters:
+            :self: instance of GeoData
+            Returns:
+            :_date: date in datetime.date format
+            :swaths: list of selected swaths
+            :self.geo_df: pandas dataframe of reveivers
+            :swaths_pnt_polygon: union of selected swaths polygon in points (RL, RP)
+            :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
+        '''
         valid = False
         while not valid:
             _date = get_date()
             valid = self.read_geo_data(_date)
 
-        swath_polygons = swath_selection()
+        swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection()
 
         for index, row in self.geo_df.iterrows():
             # check if point is within swath selection
-            local_easting = string_to_value_or_nan(row['LocalEasti'], 'float')
-            local_northing = string_to_value_or_nan(row['LocalNorth'], 'float')
+            line = string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int')
+            station = string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int')
 
-            if swath_polygons:
-                point = Point(local_easting, local_northing)
-                if not swath_polygons.contains(point):
+            if swaths_pnt_polygon:
+                point = Point(line, station)
+                if not swaths_pnt_polygon.contains(point):
                     self.geo_df = self.geo_df.drop([index])   
         
         self.geo_df = self.geo_df.reset_index(drop=True)
-        return _date, self.geo_df
+        return _date, swaths, self.geo_df, swaths_pnt_polygon, swaths_geo_polygon
 
 
 def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
@@ -255,8 +279,10 @@ def transformation(point):
         Origin point taken from SPS receiver point 3400-4213
         Azimuth angle of prospect is 30 dregrees
 
-        :input: point as tuple (RL, RP)
-        :output: point as tuple (Easting, Northing)
+        Parameters:
+        :point: a tuple of receiver line and receiver point (RL, RP)
+        Returns:
+        :transformed_point: a tuple of transformed point in (Easting, Northing)
     '''
     azimuth = (np.pi * 30 / 180 )  # converted to radians
     dx_crossline = 10.0 * np.cos(azimuth)

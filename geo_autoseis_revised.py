@@ -63,7 +63,7 @@ def calculate_bat_status(geo_df):
     return days_in_field_type1, days_in_field_type2, days_over_threshold
 
 
-def geo_stats(_date, geo_df):
+def geo_stats(_date, swaths, geo_df):
     status_codes = collections.OrderedDict()
     status_codes = {'Date': '',
                     'Battery changed 20 Ah / OK': 0,
@@ -83,7 +83,8 @@ def geo_stats(_date, geo_df):
                     'total bats': 0,
                     f'bats {th_low}d': 0,
                     f'bats {th_mid}d': 0,
-                    f'bats {th_high}d': 0}
+                    f'bats {th_high}d': 0,
+                    'swaths': ''}
 
     # make list of 'GP_TODO' column for rows for specific date '_date'
     geo_status = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]['GP_TODO'].tolist()
@@ -122,6 +123,8 @@ def geo_stats(_date, geo_df):
     except ZeroDivisionError:
         logger.info(f'{inspect.stack()[0][3]} - Exception ZeroDivisionError: {total_error}')
         status_codes['Perc. bad'] = np.NaN
+    
+    status_codes['swaths'] = ', '.join([str(swath) for swath in swaths])
 
     # save the summary to excel
     logger.info(f'date: {_date} -- status codes:\n{status_codes}')
@@ -218,10 +221,10 @@ if __name__ == "__main__":
                 f'{nl}==========================================')
 
     gd = GeoData()
-    _date, geo_df = gd.select_geo_data()
+    _date, swaths, geo_df, _ , _ = gd.select_geo_data()
 
     if input('Summarise geo date? [Y/N] ')[0] in ['y', 'Y']:
-        geo_stats(_date, geo_df)
+        geo_stats(_date, swaths, geo_df)
     
     output_bat_status_to_excel(geo_df)
     bat_histogram(geo_df)

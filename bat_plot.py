@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 from itertools import cycle
 from Utils.plogger import Logger
-from geo_io import GeoData, get_date, swath_selection
-from geo_autoseis import calculate_bat_status
+from geo_io import GeoData 
+from geo_autoseis_revised import calculate_bat_status
 
 th_high = 15
 th_mid = 10
@@ -35,13 +35,14 @@ def add_basemap(ax, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.
     ax.axis((xmin, xmax, ymin, ymax))
 
 
-def plot_bat_status():
-    fig, ax = plt.subplots(figsize=(10, 10))
-    gd = GeoData()
-    valid = False
-    while not valid:
-        _date = get_date()
-        valid, geo_df = gd.read_geo_data(_date)
+def plot_bat_status(geo_df, swaths_geo_polygon):
+    ''' function to plot the battery status
+        Parameters:
+        :geo_df: panda datafram with geophone stations data
+        :swaths_geo_polygon: shapely polygon of selected swaths
+        Returns: None
+    '''
+    _, ax = plt.subplots(figsize=(10, 10))
 
     _, _, days_over_threshold = calculate_bat_status(geo_df)
     
@@ -85,8 +86,7 @@ def plot_bat_status():
         gdf.plot(ax=ax, alpha=0.4, c=colors, markersize=MARKERSIZE, 
                  label=bat_labels[index])
 
-    swath_polygons = swath_selection()
-    swath_boundary = GeoSeries(swath_polygons, crs=EPSG_31256_adapted)
+    swath_boundary = GeoSeries(swaths_geo_polygon, crs=EPSG_31256_adapted)
     swath_boundary = swath_boundary.to_crs(epsg=EPSG_basemap)
     swath_boundary.plot(ax=ax, alpha=0.2, color='red')
     
@@ -103,4 +103,7 @@ if __name__ == "__main__":
                 f'{nl}===>   Running: bat_plot.py   <==='\
                 f'{nl}==================================')
 
-    plot_bat_status()
+    gd = GeoData()
+    _date, swaths, geo_df, _, swaths_geo_polygon = gd.select_geo_data()
+
+    plot_bat_status(geo_df, swaths_geo_polygon)
