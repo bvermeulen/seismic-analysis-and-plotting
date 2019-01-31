@@ -9,8 +9,8 @@ from Utils.plogger import Logger
 from geo_io import GeoData, get_date, swath_selection
 from geo_autoseis import calculate_bat_status
 
-th_high = 10
-th_mid = 5
+th_high = 15
+th_mid = 10
 th_low = 0
 
 RED = '#FF0000'

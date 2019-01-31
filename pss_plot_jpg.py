@@ -21,7 +21,7 @@ Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 5
 HIGH=65
 MEDIUM=45
-maptitle = ('VPs 3D Schonkirchen', 20)
+maptitle = ('VPs acquired week 19: 21 - 27 January 2019', 18)
 logger = Logger.getlogger()
 
 
