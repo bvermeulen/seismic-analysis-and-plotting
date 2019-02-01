@@ -67,8 +67,8 @@ def pss_plot_function():
 
     nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
 
-    swath_polygons = swath_selection()
-    swath_boundary = GeoSeries(swath_polygons, crs=EPSG_31256_adapted)
+    _, _, swaths_geo_polygon = swath_selection()
+    swath_boundary = GeoSeries(swaths_geo_polygon, crs=EPSG_31256_adapted)
     swath_boundary = swath_boundary.to_crs(epsg=EPSG_basemap)
     swath_boundary.plot(ax=ax, alpha=0.2, color='red')
 
