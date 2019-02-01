@@ -1,4 +1,4 @@
-from geo_io import GeoData, get_date, get_date_range, daterange, append_df_to_excel, swath_selection
+from geo_io import GeoData, get_date, df_to_excel
 import pandas as pd
 import numpy as np
 from shapely.geometry import Point
@@ -21,6 +21,7 @@ th_low = 0
 # other constants
 logger = Logger.getlogger()
 EXCEL_SUMMARY_FILE = 'autoseis_summary.xlsx'
+NO_VALUE = 999
 
 
 def calculate_bat_status(geo_df):
@@ -62,7 +63,7 @@ def calculate_bat_status(geo_df):
     return days_in_field_type1, days_in_field_type2, days_over_threshold
 
 
-def geo_stats(_date, geo_df):
+def geo_stats(_date, swaths, geo_df):
     status_codes = collections.OrderedDict()
     status_codes = {'Date': '',
                     'Battery changed 20 Ah / OK': 0,
@@ -82,14 +83,14 @@ def geo_stats(_date, geo_df):
                     'total bats': 0,
                     f'bats {th_low}d': 0,
                     f'bats {th_mid}d': 0,
-                    f'bats {th_high}d': 0}
+                    f'bats {th_high}d': 0,
+                    'swaths': ''}
 
     # make list of 'GP_TODO' column for rows for specific date '_date'
     geo_status = geo_df[pd.to_datetime(geo_df['SAVED_TIMESTAMP']).dt.date == _date]['GP_TODO'].tolist()
 
     # get the list of batteries days over threshold
     _, _, days_over_threshold = calculate_bat_status(geo_df)
-    days_over_threshold = [val for val in days_over_threshold if not pd.isnull(val)]
 
     total = 0
     total_error = 0
@@ -104,10 +105,13 @@ def geo_stats(_date, geo_df):
     for days in days_over_threshold:
         if days >= th_high:
             status_codes[f'bats {th_high}d'] += 1
+
         elif days >= th_mid:
             status_codes[f'bats {th_mid}d'] += 1
+
         elif days >= th_low:
             status_codes[f'bats {th_low}d'] +=1
+
 
     # only one field has to be given as list, so dict status_codes can be readily converted to the pandas DataFrame
     # rest of values can be scalars
@@ -119,31 +123,21 @@ def geo_stats(_date, geo_df):
     except ZeroDivisionError:
         logger.info(f'{inspect.stack()[0][3]} - Exception ZeroDivisionError: {total_error}')
         status_codes['Perc. bad'] = np.NaN
+    
+    status_codes['swaths'] = ', '.join([str(swath) for swath in swaths])
 
     # save the summary to excel
     logger.info(f'date: {_date} -- status codes:\n{status_codes}')
-
-    append_df_to_excel(pd.DataFrame(status_codes),EXCEL_SUMMARY_FILE, 
-                       index=False, header=False)
-
-
-def summarise_geo_data():
-    gd = GeoData()
-    start_date = -1
-    while start_date == -1:
-        start_date, end_date = get_date_range()
+    df_to_excel(pd.DataFrame(status_codes),EXCEL_SUMMARY_FILE, 
+                       index=False, header=False, append=True)
     
-    for _date in daterange(start_date, end_date):
-        valid, geo_df = gd.read_geo_data(_date)
-        if valid:
-            geo_stats(_date, geo_df)
 
+def output_bat_status_to_excel(geo_df):
 
-def output_bat_status_to_excel(geo_df, swath_polygons):
-
-    days_in_field_type1, days_in_field_type2, days_over_threshold =\
-        calculate_bat_status(geo_df)
-    logger.info(f"count:\n{geo_df.count()}")
+    _, _, days_over_threshold = calculate_bat_status(geo_df)
+    
+    logger.info(f"count:\n{geo_df.count()}"
+                f"\nlength days_over_threshold {len(days_over_threshold)}")
 
     bat_status_list = {'Date': [], 
                        'Line': [],
@@ -156,24 +150,17 @@ def output_bat_status_to_excel(geo_df, swath_polygons):
                       }
 
     for index, row in geo_df.iterrows():
-        # check if point is within swath selection
-        local_easting = string_to_value_or_nan(row['LocalEasti'], 'float')
-        local_northing = string_to_value_or_nan(row['LocalNorth'], 'float')
-        if not swath_polygons:
-            include_point = True 
-        else:
-            point = Point(local_easting, local_northing)
-            include_point = swath_polygons.contains(point)
-
-        if include_point:
-            bat_status_list['Date'].append(string_to_value_or_nan(row['OUTDATE'], 'date'))
-            bat_status_list['Line'].append(string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int'))
-            bat_status_list['Station'].append(string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int'))
-            bat_status_list['LocalEasting'].append(local_easting)
-            bat_status_list['LocalNorthing'].append(local_northing)
-            bat_status_list['Bat_type'].append(string_to_value_or_nan(row['Battype'], 'int'))
-            bat_status_list['Days_in_field'].append(string_to_value_or_nan(row['days_in_field'], 'int'))
+        bat_status_list['Date'].append(string_to_value_or_nan(row['OUTDATE'], 'date'))
+        bat_status_list['Line'].append(string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int'))
+        bat_status_list['Station'].append(string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int'))
+        bat_status_list['LocalEasting'].append(string_to_value_or_nan(row['LocalEasti'], 'float'))
+        bat_status_list['LocalNorthing'].append(string_to_value_or_nan(row['LocalNorth'], 'float'))
+        bat_status_list['Bat_type'].append(string_to_value_or_nan(row['Battype'], 'int'))
+        bat_status_list['Days_in_field'].append(string_to_value_or_nan(row['days_in_field'], 'int'))
+        if not pd.isnull(days_over_threshold[index]):
             bat_status_list['Daysoverthreshold'].append(string_to_value_or_nan(days_over_threshold[index], 'int'))
+        else:
+            bat_status_list['Daysoverthreshold'].append(NO_VALUE)
 
     nl ='\n'
     logger.info(f"{nl}length Date: {len(bat_status_list['Date'])}"
@@ -188,10 +175,10 @@ def output_bat_status_to_excel(geo_df, swath_polygons):
 
     bat_df = pd.DataFrame(bat_status_list)
     filename = ''.join([_date.strftime('%Y%m%d')[2:9], '_bat_status.xlsx'])
-    append_df_to_excel(bat_df, filename=filename, index=False, header=True)
+    df_to_excel(bat_df, filename=filename, index=False, header=True, append=False)
     
 
-def bat_histogram(geo_df, swath_polygons):
+def bat_histogram(geo_df):
 
     days_in_field_type1, days_in_field_type2, days_over_threshold =\
         calculate_bat_status(geo_df)
@@ -229,21 +216,22 @@ def bat_histogram(geo_df, swath_polygons):
 if __name__ == "__main__":
 
     nl = '\n'
-    logger.info(f'{nl}=================================='\
+    logger.info(f'{nl}==========================+======='\
                 f'{nl}===> Running: geo_autoseis.py <==='\
                 f'{nl}==================================')
 
+    gd = GeoData()
+
+    # extract geo data by date
+    valid = False
+    while not valid:
+        _date = get_date()
+        valid = gd.read_geo_data(_date)
+
+    swaths, geo_df, _ , _ = gd.filter_geo_data_by_swaths()
+
     if input('Summarise geo date? [Y/N] ')[0] in ['y', 'Y']:
-        summarise_geo_data()
+        geo_stats(_date, swaths, geo_df)
     
-    if input('Run battery status? [Y/N] ')[0] in ['y', 'Y']:
-        gd = GeoData()
-        valid = False
-        while not valid:
-            _date = get_date()
-            valid, geo_df = gd.read_geo_data(_date)
-
-        swath_polygons = swath_selection()
-
-        output_bat_status_to_excel(geo_df, swath_polygons)
-        bat_histogram(geo_df, swath_polygons)
+    output_bat_status_to_excel(geo_df)
+    bat_histogram(geo_df)

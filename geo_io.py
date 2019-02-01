@@ -152,6 +152,9 @@ class GeoData:
         else:    
             return False
 
+    def get_geo_df(self):
+        return self.geo_df
+
     def add_bat_days_in_field_to_df(self):
         days_in_field = []
         for _, row in self.geo_df.iterrows():
@@ -184,8 +187,9 @@ class GeoData:
         # add the columns to the dataframe
         self.geo_df['days_in_field'] = days_in_field
 
-    def select_geo_data(self):
-        ''' method to select geo_data
+
+    def filter_geo_data_by_swaths(self):
+        ''' method to select geo_data depending on swaths selected
             Parameters:
             :self: instance of GeoData
             Returns:
@@ -195,11 +199,6 @@ class GeoData:
             :swaths_pnt_polygon: union of selected swaths polygon in points (RL, RP)
             :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
         '''
-        valid = False
-        while not valid:
-            _date = get_date()
-            valid = self.read_geo_data(_date)
-
         swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection()
 
         for index, row in self.geo_df.iterrows():
@@ -213,7 +212,7 @@ class GeoData:
                     self.geo_df = self.geo_df.drop([index])   
         
         self.geo_df = self.geo_df.reset_index(drop=True)
-        return _date, swaths, self.geo_df, swaths_pnt_polygon, swaths_geo_polygon
+        return swaths, self.geo_df, swaths_pnt_polygon, swaths_geo_polygon
 
 
 def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,

@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 from itertools import cycle
 from Utils.plogger import Logger
-from geo_io import GeoData 
-from geo_autoseis_revised import calculate_bat_status
+from geo_io import GeoData, get_date 
+from geo_autoseis import calculate_bat_status
 
 th_high = 15
 th_mid = 10
@@ -76,9 +76,9 @@ def plot_bat_status(geo_df, swaths_geo_polygon):
     for index, key in enumerate(coordinates):
         colors = [bat_colors[index] for _ in range(len(coordinates[key]))]
         if not colors:
-            continue
+            continue  # no points for this key
         else:
-            pass  # no points for this key
+            pass # just added so I have not overlooked the else! 
         
         geo_point = [Point(xy) for xy in coordinates[key]]
         gdf = GeoDataFrame(crs=EPSG_31256_adapted, geometry=geo_point)
@@ -104,6 +104,13 @@ if __name__ == "__main__":
                 f'{nl}==================================')
 
     gd = GeoData()
-    _date, swaths, geo_df, _, swaths_geo_polygon = gd.select_geo_data()
+
+    # extract geo data by date
+    valid = False
+    while not valid:
+        _date = get_date()
+        valid = gd.read_geo_data(_date)
+
+    swaths, geo_df, _, swaths_geo_polygon = gd.filter_geo_data_by_swaths()
 
     plot_bat_status(geo_df, swaths_geo_polygon)
