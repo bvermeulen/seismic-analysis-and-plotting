@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from shapely.ops import cascaded_union
+from geopandas import GeoSeries, GeoDataFrame, read_file, overlay
 from Utils.plogger import Logger
 from Utils.utils import string_to_value_or_nan
 import inspect
@@ -13,11 +14,19 @@ import re
 
 
 PREFIX = r'autoseis_data\OUT_'
+receiver_shapefile = './bounderies/Receiver_Boundary.shp'
+source_shapefile = './bounderies/Source_Boundary_OMV_noWE.shp'
+EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
+                     " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
+                     "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
+
+
 
 # start logger
 logformat = '%(asctime)s - %(levelname)s - %(message)s'
 Logger.set_logger('autoseis.log', logformat, 'INFO')
 logger = Logger.getlogger()
+nl = '\n'
 
 
 def get_date():
@@ -109,15 +118,13 @@ def swath_selection():
         _polygon = Polygon([point1_coord, point2_coord, point3_coord, point4_coord])
         swaths_geo_polygon.append(_polygon)
 
-        # give a little extra margin for points to be selected on the boundary
-        point1 = (sd['1st RL'] - 1, sd['1st GP'] - 1)
-        point2 = (sd['1st RL'] - 1, sd['last GP'] + 1)
-        point3 = (sd['last RL'] + 1, sd['last GP'] + 1)
-        point4 = (sd['last RL'] + 1, sd['1st GP'] - 1)
+        point1 = (sd['1st RL'], sd['1st GP'])
+        point2 = (sd['1st RL'], sd['last GP'])
+        point3 = (sd['last RL'], sd['last GP'])
+        point4 = (sd['last RL'], sd['1st GP'])
 
         _polygon = Polygon([point1, point2, point3, point4])
         swaths_pnt_polygon.append(_polygon)
-
 
     return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
@@ -125,7 +132,7 @@ def swath_selection():
 class GeoData:
     '''  method for handling Geo data '''
     def __init__(self):
-        pass
+        self.geo_df = None
 
     def read_geo_data(self, _date):
         read_is_valid = False
@@ -188,10 +195,11 @@ class GeoData:
         self.geo_df['days_in_field'] = days_in_field
 
 
-    def filter_geo_data_by_swaths(self):
+    def filter_geo_data_by_swaths(self, swaths_only=False):
         ''' method to select geo_data depending on swaths selected
             Parameters:
             :self: instance of GeoData
+            :swaths_only: boolean - True if only swath selection is required, default False
             Returns:
             :_date: date in datetime.date format
             :swaths: list of selected swaths
@@ -200,19 +208,31 @@ class GeoData:
             :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
         '''
         swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection()
+        rec_bnd_gdf = GeoDataFrame(geometry=read_file(receiver_shapefile).geometry,)
+        swaths_bnd_gdf = GeoDataFrame(geometry=GeoSeries(swaths_geo_polygon),)
 
-        for index, row in self.geo_df.iterrows():
-            # check if point is within swath selection
-            line = string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int')
-            station = string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int')
+        if swaths_pnt_polygon and not swaths_only:
+            for index, row in self.geo_df.iterrows():
+                # check if point is within swath selection
+                line = string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int')
+                station = string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int')
 
-            if swaths_pnt_polygon:
                 point = Point(line, station)
-                if not swaths_pnt_polygon.contains(point):
+                if swaths_pnt_polygon.contains(point) or swaths_pnt_polygon.intersects(point):
+                    pass  # point is in or on the polygon
+                else:
                     self.geo_df = self.geo_df.drop([index])   
-        
-        self.geo_df = self.geo_df.reset_index(drop=True)
-        return swaths, self.geo_df, swaths_pnt_polygon, swaths_geo_polygon
+
+            swaths_bnd_gdf = overlay(rec_bnd_gdf, swaths_bnd_gdf, how='intersection')
+
+            self.geo_df = self.geo_df.reset_index(drop=True)
+
+        else:
+            # if no swaths selected then only display the receiver boundary of the project
+            if not swaths_pnt_polygon:
+                swaths_bnd_gdf = rec_bnd_gdf
+
+        return swaths, self.geo_df, swaths_pnt_polygon, swaths_bnd_gdf
 
 
 def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
@@ -296,5 +316,3 @@ def transformation(point):
                           (point[0] - POINT_0[0]) * dy_crossline +
                           (point[1] - POINT_0[1]) * dy_inline + COORD_0[1])
     return transformed_point
-
-

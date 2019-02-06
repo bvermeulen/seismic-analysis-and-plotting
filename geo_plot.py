@@ -18,13 +18,10 @@ EPSG_basemap = 3857
 logger = Logger.getlogger()
 
 
-def add_basemap(ax, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
-    xmin, xmax, ymin, ymax = ax.axis()
+def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
     logger.info(f'url: {url}')
-    basemap, extent = ctx.bounds2img(xmin, ymin, xmax, ymax, zoom=zoom, url=url)
+    basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
     ax.imshow(basemap, extent=extent, interpolation='bilinear')
-    # restore original x/y limits
-    ax.axis((xmin, xmax, ymin, ymax))
 
 
 def plot_checked_stations():
@@ -68,13 +65,21 @@ def plot_checked_stations():
         gdf = gdf.to_crs(epsg=EPSG_basemap)
         gdf.plot(ax=ax, alpha=0.5, c=colors, markersize=MARKERSIZE_ERROR, label='error')
 
-    _, _, swaths_geo_polygon = swath_selection()
-    swath_boundary = GeoSeries(swaths_geo_polygon, crs=EPSG_31256_adapted)
-    swath_boundary = swath_boundary.to_crs(epsg=EPSG_basemap)
-    swath_boundary.plot(ax=ax, alpha=0.2, color='red')
+
+    _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_only=True)
+    swaths_bnd_gdf.crs = EPSG_31256_adapted
+    swaths_bnd_gdf = swaths_bnd_gdf.to_crs(epsg=EPSG_basemap)
+    swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
+
+    # determine the plot area based on extent of swaths_bnd_gdf
+    xmin, xmax, ymin, ymax = ax.axis()
 
     if input('add basemap: [y/n]: ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
-        add_basemap(ax, zoom=13)
+        add_basemap(ax, (xmin, ymin, xmax, ymax), zoom=13)
+
+    # restore original x/y limits
+    ax.axis((xmin, xmax, ymin, ymax))
+
 
     ax.set_title(f'HDR status check', fontsize=20)
     plt.legend()    

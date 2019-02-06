@@ -7,7 +7,7 @@ from shapely.geometry import Point
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap 
 from PIL import Image
-from geo_io import swath_selection
+from geo_io import GeoData
 
 
 MAP_FILE = r'BackgroundMap/3D_31256.jpg'
@@ -21,8 +21,9 @@ Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 5
 HIGH=65
 MEDIUM=45
-maptitle = ('VPs acquired week 19: 21 - 27 January 2019', 18)
+maptitle = ('VPs acquired week 20: 28 January - 3 February 2019', 18)
 logger = Logger.getlogger()
+nl = '\n'
 
 
 def group_forces(forces, high, medium):
@@ -46,9 +47,6 @@ def add_basemap(ax):
          :input: ax 
          :output: none  
     '''
-    # obtain the extent of the data to restore later
-    extent_data = ax.axis()
-    logger.info(f'extent data: {extent_data}')
 
     # read the map image file and set the extent
     fname_jgW = MAP_FILE[:-4] + '.jgW' 
@@ -71,9 +69,6 @@ def add_basemap(ax):
 
     ax.imshow(basemap, extent=(x_min, x_max, y_min, y_max), interpolation='bilinear')
 
-    # restore original x/y limits
-    ax.axis(extent_data)
-
 
 def pss_plot_function():
     _, ax = plt.subplots(figsize=(10, 10))    
@@ -95,20 +90,28 @@ def pss_plot_function():
                   label=force_attrs[ftype][1],
                   markersize=MARKERSIZE,)
 
-    nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
+    logger.info(f'geometry header: {nl}{gdf.head()}')
 
-    _, _, swaths_geo_polygon = swath_selection()
-    swath_boundary = GeoSeries(swaths_geo_polygon, crs=EPSG_31256_adapted)
-    swath_boundary.plot(ax=ax, alpha=0.2, color='red')
+
+    gd = GeoData()
+    _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_only=True)
+    swaths_bnd_gdf.crs = EPSG_31256_adapted
+    swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
+
+    # obtain the extent of the data based on swaths_bnd_gdf
+    extent_data = ax.axis()
+    logger.info(f'extent data: {extent_data}')
 
     add_basemap(ax)
+
+    # restore original x/y limits
+    ax.axis(extent_data)
     ax.legend(title='Legend')
     ax.set_title(maptitle[0], fontsize=maptitle[1])
     plt.show()
 
 
 if __name__ == "__main__":
-    nl = '\n'
     logger.info(f'{nl}======================================'\
                 f'{nl}===>   Running: pss_plot_jpg.py   <==='\
                 f'{nl}======================================')

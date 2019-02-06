@@ -6,7 +6,7 @@ import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
 from shapely.geometry import Point
 import matplotlib.pyplot as plt
-from geo_io import swath_selection
+from geo_io import GeoData
 
 
 MARKERSIZE = 3
@@ -20,6 +20,7 @@ HIGH=65
 MEDIUM=45
 maptitle = ('VPs 3D Schonkirchen', 20)
 logger = Logger.getlogger()
+nl = '\n'
 
 def group_forces(forces, high, medium):
     grouped_forces = []
@@ -36,13 +37,10 @@ def group_forces(forces, high, medium):
     return grouped_forces
 
 
-def add_basemap(ax, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
-    xmin, xmax, ymin, ymax = ax.axis()
+def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
     logger.info(f'url: {url}')
-    basemap, extent = ctx.bounds2img(xmin, ymin, xmax, ymax, zoom=zoom, url=url)
+    basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
     ax.imshow(basemap, extent=extent, interpolation='bilinear')
-    # restore original x/y limits
-    ax.axis((xmin, xmax, ymin, ymax))
 
 
 def pss_plot_function():
@@ -65,23 +63,29 @@ def pss_plot_function():
                   label=force_attrs[ftype][1],
                   markersize=MARKERSIZE,)
 
-    nl = '\n'; logger.info(f'geometry header: {nl}{gdf.head()}')
+    logger.info(f'geometry header: {nl}{gdf.head()}')
 
-    _, _, swaths_geo_polygon = swath_selection()
-    swath_boundary = GeoSeries(swaths_geo_polygon, crs=EPSG_31256_adapted)
-    swath_boundary = swath_boundary.to_crs(epsg=EPSG_basemap)
-    swath_boundary.plot(ax=ax, alpha=0.2, color='red')
+    gd = GeoData()
+    _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_only=True)
+    swaths_bnd_gdf.crs = EPSG_31256_adapted
+    swaths_bnd_gdf = swaths_bnd_gdf.to_crs(epsg=EPSG_basemap)
+    swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
 
-    add_basemap(ax, zoom=ZOOM)
+    # obtain the extent of the data based on swaths_bnd_gdf
+    extent_data = ax.axis()
+    logger.info(f'extent data: {extent_data}')
+
+    add_basemap(ax, (extent_data[0], extent_data[2], extent_data[1], extent_data[3]), zoom=ZOOM)
     logger.info(f'zoom factor: {ZOOM}')
 
+    # restore original x/y limits
+    ax.axis(extent_data)
     ax.legend(title='Legend')
     ax.set_title(maptitle[0], fontsize=maptitle[1])
     plt.show()
 
 
 if __name__ == "__main__":
-    nl = '\n'
     logger.info(f'{nl}=================================='\
                 f'{nl}===>   Running: pss_plot.py   <==='\
                 f'{nl}==================================')
