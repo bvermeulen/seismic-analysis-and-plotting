@@ -16,8 +16,8 @@ EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
 EPSG_basemap = 3857 
 EPSG_WGS84 = 4326
 ZOOM = 13
-HIGH=65
-MEDIUM=45
+HIGH=60
+MEDIUM=35
 maptitle = ('VPs 3D Schonkirchen', 20)
 logger = Logger.getlogger()
 nl = '\n'

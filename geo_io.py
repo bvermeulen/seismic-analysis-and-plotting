@@ -21,7 +21,6 @@ EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
 
 
-
 # start logger
 logformat = '%(asctime)s - %(levelname)s - %(message)s'
 Logger.set_logger('autoseis.log', logformat, 'INFO')
@@ -109,22 +108,15 @@ def swath_selection():
         point2 = (sd['1st RL'], sd['last GP'])
         point3 = (sd['last RL'], sd['last GP'])
         point4 = (sd['last RL'], sd['1st GP'])
+        _polygon = Polygon([point1, point2, point3, point4])
+        swaths_pnt_polygon.append(_polygon)
 
         point1_coord = transformation(point1)
         point2_coord = transformation(point2)
         point3_coord = transformation(point3)
         point4_coord = transformation(point4)
-        
         _polygon = Polygon([point1_coord, point2_coord, point3_coord, point4_coord])
         swaths_geo_polygon.append(_polygon)
-
-        point1 = (sd['1st RL'], sd['1st GP'])
-        point2 = (sd['1st RL'], sd['last GP'])
-        point3 = (sd['last RL'], sd['last GP'])
-        point4 = (sd['last RL'], sd['1st GP'])
-
-        _polygon = Polygon([point1, point2, point3, point4])
-        swaths_pnt_polygon.append(_polygon)
 
     return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
@@ -209,29 +201,31 @@ class GeoData:
         '''
         swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection()
         rec_bnd_gdf = GeoDataFrame(geometry=read_file(receiver_shapefile).geometry,)
+        rec_bnd_gdf.crs = EPSG_31256_adapted
         swaths_bnd_gdf = GeoDataFrame(geometry=GeoSeries(swaths_geo_polygon),)
+        swaths_bnd_gdf.crs = EPSG_31256_adapted
+        print(f'swaths_pnt: {swaths_pnt_polygon}')
+        if swaths_pnt_polygon:
+            swaths_bnd_gdf = overlay(rec_bnd_gdf, swaths_bnd_gdf, how='intersection')
+        else:
+            swaths_bnd_gdf = rec_bnd_gdf
 
-        if swaths_pnt_polygon and not swaths_only:
+        if not swaths_only and swaths_pnt_polygon:
             for index, row in self.geo_df.iterrows():
                 # check if point is within swath selection
                 line = string_to_value_or_nan(str(row['STATIONVIX'])[0:4], 'int')
                 station = string_to_value_or_nan(str(row['STATIONVIX'])[4:8], 'int')
-
                 point = Point(line, station)
                 if swaths_pnt_polygon.contains(point) or swaths_pnt_polygon.intersects(point):
                     pass  # point is in or on the polygon
                 else:
                     self.geo_df = self.geo_df.drop([index])   
 
-            swaths_bnd_gdf = overlay(rec_bnd_gdf, swaths_bnd_gdf, how='intersection')
-
             self.geo_df = self.geo_df.reset_index(drop=True)
 
         else:
-            # if no swaths selected then only display the receiver boundary of the project
-            if not swaths_pnt_polygon:
-                swaths_bnd_gdf = rec_bnd_gdf
-
+            pass
+            
         return swaths, self.geo_df, swaths_pnt_polygon, swaths_bnd_gdf
 
 
