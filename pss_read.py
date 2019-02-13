@@ -2,11 +2,12 @@ import csv
 import glob
 import pandas as pd
 import numpy as np
-from datetime import timedelta, date
+from datetime import timedelta
+from geo_io import daterange
 from Utils.plogger import Logger
 
 
-PREFIX = r'RAW_PSS\PSS_20'
+PREFIX = r'RAW_PSS\PSS_'
 LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
@@ -149,9 +150,13 @@ def read_pss_file_xls(xls_file):
 
 def pss_read_file(_date):
     logger = Logger.getlogger()
-    _pss_file = PREFIX + _date[0:2] + '_' + _date[2:4] + '_' + _date[4:6] + '*.csv'
+
+    _pss_file = PREFIX + ''.join([f'{int(_date.strftime("%Y")):04}', '_'
+                                  f'{int(_date.strftime("%m")):02}', '_' 
+                                  f'{int(_date.strftime("%d")):02}', '*.csv'])
     # pss_file = PREFIX + _date + '.xlsx'
 
+    logger.info(f'filename: {_pss_file}')
     _pss_file = glob.glob(_pss_file)
     logger.info(f'filename: {_pss_file}')
     
@@ -173,50 +178,24 @@ def pss_read_file(_date):
     return pss_data
 
 
-def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)):
-        yield start_date + timedelta(n)
-
-
-def get_dates():
-
-    start_date = input('date (YYMMDD) [q - quit]: ')
-    end_date = input('date (YYMMDD) [q - quit]: ')
-    if start_date in ['q', 'Q'] or end_date in ['q', 'Q']:
-        exit()
-    start_date = date(int(start_date[0:2]), 
-                      int(start_date[2:4]), 
-                      int(start_date[4:6]))
-    end_date = date(int(end_date[0:2]), 
-                      int(end_date[2:4]), 
-                      int(end_date[4:6]))
-    end_date += timedelta(1)
-
-    if start_date >= end_date:
-        print('incorrect date range')
-        start_date = -1
-        end_date = -1
-
-    return start_date, end_date
-
-
-def read_pss_for_date_range():
+def read_pss_for_date_range(start_date, end_date):
     '''  reads pss data for a date range - interactive input through console
-    :input: none
-    :output: vp_lats, vp_longs, vp_forces  [numpy arrays]
+    parameters:
+    :start_date: start date (datetime date type)
+    :end_date: end date (datetime date type)
+    return:
+    :vp_lats: numpy array 
+    :vp_longs: numpy array
+    :vp_forces: numpy array
     '''
     logger = Logger.getlogger()
-    start_date = -1
-    while start_date == -1:
-        start_date, end_date = get_dates()
     
     vp_lats = np.array([])
     vp_longs = np.array([])
     vp_forces = np.array([])
 
     for day in daterange(start_date, end_date):
-        date_pss = str(f'{day.year:02}') + str(f'{day.month:02}') + str(f'{day.day:02}')
-        pss_data = pss_read_file(date_pss)
+        pss_data = pss_read_file(day)
         if pss_data == -1:
             continue
         pss = PssData(pss_data)

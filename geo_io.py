@@ -19,7 +19,7 @@ source_shapefile = './bounderies/Source_Boundary_OMV_noWE.shp'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-
+ASK_DATE = 'date (YYMMDD) [q - quit]: '
 
 # start logger
 logformat = '%(asctime)s - %(levelname)s - %(message)s'
@@ -29,7 +29,7 @@ nl = '\n'
 
 
 def get_date():
-    _date = input('date (YYMMDD) [q - quit]: ')
+    _date = input(ASK_DATE)
     if _date in ['q', 'Q']:
         exit()
     _date = date(int(_date[0:2])+2000, 
@@ -40,24 +40,27 @@ def get_date():
 
 
 def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)):
+    assert start_date <= end_date, f'start date {start_date} must be less than '\
+                                  f'or equal to end date {end_date}'
+
+    for n in range(int ((end_date - start_date).days)+1):
         yield start_date + timedelta(n)
 
 
 def get_date_range():
-    start_date = input('date (YYMMDD) [q - quit]: ')
-    end_date = input('date (YYMMDD) [q - quit]: ')
+    start_date = input(ASK_DATE)
+    end_date = input(ASK_DATE)
     if start_date in ['q', 'Q'] or end_date in ['q', 'Q']:
         exit()
+
     start_date = date(int(start_date[0:2])+2000, 
                       int(start_date[2:4]), 
                       int(start_date[4:6]))
     end_date = date(int(end_date[0:2])+2000, 
                       int(end_date[2:4]), 
                       int(end_date[4:6]))
-    end_date += timedelta(1)
 
-    if start_date >= end_date:
+    if start_date > end_date:
         print('incorrect date range')
         start_date = -1
         end_date = -1
@@ -65,7 +68,7 @@ def get_date_range():
     return start_date, end_date
 
 
-def swath_selection():
+def swath_selection(swaths_selected=[]):
     ''' Selection of swath. Swath information taken from the file: 
            Points+Lines_SW_24_stay.xlsx
         Manual inpput check if there exists at least one valid swath otherwise
@@ -84,20 +87,28 @@ def swath_selection():
     swath_file = r'.\Points+Lines_SW_24_stay.xlsx'
     swath_df = pd.read_excel(swath_file, skiprows=5)
     valid_swaths = swath_df['Swath'].tolist()
-    valid = False
     swaths = []
-    while not valid:
-        _swaths = [int(num[0]) for num in re.finditer(r'\d+', input('Swaths to be included: [0 for all]: '))]
-        if len(_swaths) == 1 and _swaths[0] == 0:
-            valid = True
-            break
-             
-        for swath in _swaths:
-            if swath in valid_swaths:
-                swaths.append(swath)
-        
-        if swaths:
-            valid = True
+    if swaths_selected == []:
+        valid = False
+        while not valid:
+            _swaths = [int(num[0]) for num in re.finditer(r'\d+', input('Swaths to be included: [0 for all]: '))]
+            if len(_swaths) == 1 and _swaths[0] == 0:
+                valid = True
+                break
+                
+            for swath in _swaths:
+                if swath in valid_swaths:
+                    swaths.append(swath)
+
+            if swaths:
+                valid = True
+    else:
+        if len(swaths_selected) == 1 and swaths_selected[0] == 0:
+            pass
+        else:            
+            for swath in swaths_selected:
+                if swath in valid_swaths:
+                    swaths.append(swath)
 
     swaths_pnt_polygon = []
     swaths_geo_polygon = []
@@ -187,7 +198,7 @@ class GeoData:
         self.geo_df['days_in_field'] = days_in_field
 
 
-    def filter_geo_data_by_swaths(self, swaths_only=False):
+    def filter_geo_data_by_swaths(self, swaths_selected=[], swaths_only=False):
         ''' method to select geo_data depending on swaths selected
             Parameters:
             :self: instance of GeoData
@@ -199,12 +210,11 @@ class GeoData:
             :swaths_pnt_polygon: union of selected swaths polygon in points (RL, RP)
             :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
         '''
-        swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection()
+        swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection(swaths_selected=swaths_selected)
         rec_bnd_gdf = GeoDataFrame(geometry=read_file(receiver_shapefile).geometry,)
         rec_bnd_gdf.crs = EPSG_31256_adapted
         swaths_bnd_gdf = GeoDataFrame(geometry=GeoSeries(swaths_geo_polygon),)
         swaths_bnd_gdf.crs = EPSG_31256_adapted
-        print(f'swaths_pnt: {swaths_pnt_polygon}')
         if swaths_pnt_polygon:
             swaths_bnd_gdf = overlay(rec_bnd_gdf, swaths_bnd_gdf, how='intersection')
         else:
@@ -284,7 +294,14 @@ def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
     df.to_excel(writer, sheet_name, startrow=startrow, **to_excel_kwargs)
 
     # save the workbook
-    writer.save()
+    valid = False
+    while not valid:
+        try:
+            writer.save()
+            valid = True
+        except PermissionError:
+            if input(f'Close file {filename} and enter or quit [Q] ') in ['q', 'Q']:
+                exit()
 
 
 def transformation(point):

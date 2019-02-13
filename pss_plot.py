@@ -6,10 +6,10 @@ import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
 from shapely.geometry import Point
 import matplotlib.pyplot as plt
-from geo_io import GeoData
+from geo_io import GeoData, get_date_range
 
-
-MARKERSIZE = 3
+PREFIX = r'plots\pss_plot_'
+MARKERSIZE = 1
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
@@ -18,7 +18,7 @@ EPSG_WGS84 = 4326
 ZOOM = 13
 HIGH=60
 MEDIUM=35
-maptitle = ('VPs 3D Schonkirchen', 20)
+maptitle = ('VPs 3D Schonkirchen', 18)
 logger = Logger.getlogger()
 nl = '\n'
 
@@ -43,10 +43,10 @@ def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/t
     ax.imshow(basemap, extent=extent, interpolation='bilinear')
 
 
-def pss_plot_function():
+def pss_plot_function(start_date, end_date, swaths_selected=[], saveplot=False):
     _, ax = plt.subplots(figsize=(10, 10))    
 
-    vp_longs, vp_lats, vp_forces = read_pss_for_date_range()
+    vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     crs = {'init': f'epsg:{EPSG_WGS84}'}
     gdf = GeoDataFrame(crs=crs, geometry=vib_points_df)
@@ -66,7 +66,7 @@ def pss_plot_function():
     logger.info(f'geometry header: {nl}{gdf.head()}')
 
     gd = GeoData()
-    _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_only=True)
+    _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_selected=swaths_selected, swaths_only=True)
     swaths_bnd_gdf.crs = EPSG_31256_adapted
     swaths_bnd_gdf = swaths_bnd_gdf.to_crs(epsg=EPSG_basemap)
     swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
@@ -81,8 +81,15 @@ def pss_plot_function():
     # restore original x/y limits
     ax.axis(extent_data)
     ax.legend(title='Legend')
-    ax.set_title(maptitle[0], fontsize=maptitle[1])
-    plt.show()
+    if saveplot:
+        plotfile = PREFIX + ''.join([start_date.strftime("%m%d"),
+                                     '_', end_date.strftime("%m%d"), '.png'])
+        logger.info(f'plotfile: {plotfile}')
+        ax.set_title(''.join([maptitle[0], ' ', end_date.strftime("%d-%b-%y")]), fontsize=12)
+        plt.savefig(plotfile)
+    else:
+        ax.set_title(maptitle[0], fontsize=maptitle[1])
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -90,5 +97,8 @@ if __name__ == "__main__":
                 f'{nl}===>   Running: pss_plot.py   <==='\
                 f'{nl}==================================')
 
+    start_date = -1
+    while start_date == -1:
+        start_date, end_date = get_date_range()
 
-    pss_plot_function()
+    pss_plot_function(start_date, end_date, swaths_selected=[], saveplot=False)

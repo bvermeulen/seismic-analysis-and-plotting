@@ -3,7 +3,7 @@ import numpy as np
 from pss_read import pss_read_file 
 import matplotlib.pyplot as plt
 from scipy import stats
-from pprint import pprint
+from geo_io import get_date
 from Utils.plogger import Logger
 
 
@@ -108,6 +108,7 @@ class PssData:
         '''  method to get the data for attr_key for the fleet. If there is no value the mask_value will 
              be assigned to mask the record from plotting
         '''
+        logger = Logger.getlogger()
         # determine list of field records for all vibes in the fleet
         vib_axis = set()
         for pss in self.pss_data:
@@ -352,14 +353,10 @@ if __name__ == "__main__":
     logformat = '%(asctime)s - %(levelname)s - %(message)s'
     Logger.set_logger('pss_data.log', logformat, 'DEBUG')
     
+    correct_file = False
     while True:
-        correct_file = False
-        
-        date_pss = input('date (YYMMDD) [q - quit]: ')
-        if date_pss in ['q', 'Q']:
-            break
 
-        pss_data = pss_read_file(date_pss)
+        pss_data = pss_read_file(get_date())
 
         if pss_data == -1:
             pass

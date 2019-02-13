@@ -7,7 +7,7 @@ from shapely.geometry import Point
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap 
 from PIL import Image
-from geo_io import GeoData
+from geo_io import GeoData, get_date_range
 
 
 MAP_FILE = r'BackgroundMap/3D_31256.jpg'
@@ -18,10 +18,10 @@ EPSG_basemap = 3857
 EPSG_WGS84 = 4326
 
 Image.MAX_IMAGE_PIXELS = 2000000000
-MARKERSIZE = 5
-HIGH=65
-MEDIUM=45
-maptitle = ('VPs acquired week 20: 28 January - 3 February 2019', 18)
+MARKERSIZE = 3
+HIGH=60
+MEDIUM=40
+maptitle = ('VPs acquired week 21: 4 - 10 February 2019', 18)
 logger = Logger.getlogger()
 nl = '\n'
 
@@ -70,10 +70,10 @@ def add_basemap(ax):
     ax.imshow(basemap, extent=(x_min, x_max, y_min, y_max), interpolation='bilinear')
 
 
-def pss_plot_function():
+def pss_plot_function(start_date, end_date, save_plot=False):
     _, ax = plt.subplots(figsize=(10, 10))    
 
-    vp_longs, vp_lats, vp_forces = read_pss_for_date_range()
+    vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     crs = {'init': f'epsg:{EPSG_WGS84}'}
     gdf = GeoDataFrame(crs=crs, geometry=vib_points_df)
@@ -116,4 +116,8 @@ if __name__ == "__main__":
                 f'{nl}===>   Running: pss_plot_jpg.py   <==='\
                 f'{nl}======================================')
 
-    pss_plot_function()
+    start_date = -1
+    while start_date == -1:
+        start_date, end_date = get_date_range()
+
+    pss_plot_function(start_date, end_date)
