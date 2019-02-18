@@ -14,8 +14,7 @@ import re
 
 
 PREFIX = r'autoseis_data\OUT_'
-receiver_shapefile = './bounderies/Receiver_Boundary.shp'
-source_shapefile = './bounderies/Source_Boundary_OMV_noWE.shp'
+geo_shapefile = './areas_shapes/geo_shapefile.shp'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
@@ -79,7 +78,7 @@ def swath_selection(swaths_selected=[]):
 
         Parameters: None
         Returns:
-        :swaths: list of selelected swaths
+        :swaths: list of selelected swaths, empty list if no swath is selected
         :swaths_pnt_polygon: union of selected swaths polygon in points (RL, RP)
         :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
 
@@ -198,7 +197,7 @@ class GeoData:
         self.geo_df['days_in_field'] = days_in_field
 
 
-    def filter_geo_data_by_swaths(self, swaths_selected=[], swaths_only=False):
+    def filter_geo_data_by_swaths(self, swaths_selected=[], swaths_only=False, source_boundary=False):
         ''' method to select geo_data depending on swaths selected
             Parameters:
             :self: instance of GeoData
@@ -211,14 +210,22 @@ class GeoData:
             :swaths_geo_polygon: union of selected swaths polygon in (easting, northing) 
         '''
         swaths, swaths_pnt_polygon, swaths_geo_polygon = swath_selection(swaths_selected=swaths_selected)
-        rec_bnd_gdf = GeoDataFrame(geometry=read_file(receiver_shapefile).geometry,)
-        rec_bnd_gdf.crs = EPSG_31256_adapted
+        bnd_gdf = read_file(geo_shapefile)
+        bnd_gdf.crs = EPSG_31256_adapted
+        rcv_bnd_gdf = bnd_gdf[bnd_gdf['OBJECTID'] == 1]
+        src_bnd_gdf = bnd_gdf[bnd_gdf['OBJECTID'] > 1]
         swaths_bnd_gdf = GeoDataFrame(geometry=GeoSeries(swaths_geo_polygon),)
         swaths_bnd_gdf.crs = EPSG_31256_adapted
         if swaths_pnt_polygon:
-            swaths_bnd_gdf = overlay(rec_bnd_gdf, swaths_bnd_gdf, how='intersection')
+            swaths_bnd_gdf = overlay(rcv_bnd_gdf, swaths_bnd_gdf, how='intersection')
         else:
-            swaths_bnd_gdf = rec_bnd_gdf
+            swaths_bnd_gdf = rcv_bnd_gdf
+
+        if source_boundary and swaths != []:
+            src_bnd_gdf = overlay(src_bnd_gdf, swaths_bnd_gdf, how='intersection')
+            swaths_bnd_gdf = overlay(swaths_bnd_gdf, src_bnd_gdf, how='union')
+        else:
+            pass
 
         if not swaths_only and swaths_pnt_polygon:
             for index, row in self.geo_df.iterrows():

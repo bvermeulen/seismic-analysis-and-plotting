@@ -111,6 +111,6 @@ if __name__ == "__main__":
         _date = get_date()
         valid = gd.read_geo_data(_date)
 
-    swaths, geo_df, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths()
+    swaths, geo_df, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(source_boundary=True)
 
     plot_bat_status(geo_df, swaths_bnd_gdf)

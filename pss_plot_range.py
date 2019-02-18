@@ -1,4 +1,5 @@
-from geo_io import get_date_range, daterange, get_date
+from datetime import date
+from geo_io import get_date_range, daterange
 from pss_plot import pss_plot_function
 from Utils.plogger import Logger
 
@@ -10,7 +11,7 @@ if __name__ == "__main__":
                 f'{nl}===>   Running: pss_plot_range.py   <==='\
                 f'{nl}========================================')
 
-    initial_date = get_date()
+    initial_date = date(2018, 10, 15)  # first date production
 
     start_date = -1
     while start_date == -1:
