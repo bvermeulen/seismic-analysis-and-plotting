@@ -4,9 +4,10 @@ from Utils.plogger import Logger
 import numpy as np
 import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 import matplotlib.pyplot as plt
-from geo_io import GeoData, get_date_range
+from geo_io import GeoData, get_date_range, offset_transformation
+
 
 PREFIX = r'plots\pss_plot_'
 MARKERSIZE = 1
@@ -21,6 +22,7 @@ MEDIUM=35
 maptitle = ('VPs 3D Schonkirchen', 18)
 logger = Logger.getlogger()
 nl = '\n'
+
 
 def group_forces(forces, high, medium):
     grouped_forces = []
@@ -44,6 +46,7 @@ def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/t
 
 
 def pss_plot_function(start_date, end_date, swaths_selected=[], saveplot=False):
+
     _, ax = plt.subplots(figsize=(10, 10))    
 
     vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
@@ -65,6 +68,7 @@ def pss_plot_function(start_date, end_date, swaths_selected=[], saveplot=False):
 
     logger.info(f'geometry header: {nl}{gdf.head()}')
 
+    # plot the swath boundary
     gd = GeoData()
     _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_selected=swaths_selected, swaths_only=True)
     swaths_bnd_gdf.crs = EPSG_31256_adapted

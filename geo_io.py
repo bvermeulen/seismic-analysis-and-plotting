@@ -314,7 +314,7 @@ def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
 def transformation(point):
     ''' transformation from RL-RP to Easting/ Northting
         Origin point taken from SPS receiver point 3400-4213
-        Azimuth angle of prospect is 30 dregrees
+        Azimuth angle of prospect is 30 degrees
 
         Parameters:
         :point: a tuple of receiver line and receiver point (RL, RP)
@@ -334,3 +334,24 @@ def transformation(point):
                           (point[0] - POINT_0[0]) * dy_crossline +
                           (point[1] - POINT_0[1]) * dy_inline + COORD_0[1])
     return transformed_point
+
+
+def offset_transformation(inline_offset, crossline_offset):
+    '''  transformation from inline_offset, crossline offset to delta_easting,
+         delta_northing
+         Azimuth angle of prospect is 30 degrees
+
+         Parameters:
+         :inline_offset: (m) inline offset in meters - negative along azimuth vector (float)
+         :crossline_offset: (m) crossline offset in meters - positive counterclockwise (float)
+         :Returns:
+         :dx: (m) change in x direction (float)
+         :dy: (m) change in y direction (float)
+    '''
+    azimuth = (np.pi * 30 / 180 )  # converted to radians
+    dx_crossline = crossline_offset * np.cos(azimuth)
+    dy_crossline = -crossline_offset * np.sin(azimuth)
+    dx_inline = -inline_offset * np.sin(azimuth)
+    dy_inline = -inline_offset * np.cos(azimuth)
+
+    return dx_inline + dx_crossline, dy_inline + dy_crossline

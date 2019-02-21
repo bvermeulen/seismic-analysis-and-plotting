@@ -21,7 +21,7 @@ Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 3
 HIGH=60
 MEDIUM=40
-maptitle = ('VPs acquired week 21: 4 - 10 February 2019', 18)
+maptitle = ('VPs acquired week 22: 11 - 17 February 2019', 18)
 logger = Logger.getlogger()
 nl = '\n'
 
