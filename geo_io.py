@@ -130,6 +130,16 @@ def swath_selection(swaths_selected=[]):
 
     return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
+def make_square():
+    ''' DEBUG 
+        510000	5350000	520000	5340000
+    '''
+    c1 = (530000, 5365000)
+    c2 = (520000, 5365000)
+    c3 = (520000, 5355000)
+    c4 = (530000, 5355000)
+    return Polygon([c1, c2, c3, c4, c1])
+
 
 class GeoData:
     '''  method for handling Geo data '''

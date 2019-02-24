@@ -3,22 +3,30 @@ from pss_read import read_pss_for_date_range
 from Utils.plogger import Logger
 import numpy as np
 import geopandas as gpd
+from pyproj import Proj, transform
 from geopandas import GeoDataFrame, GeoSeries
 from shapely.geometry import Point, Polygon
 import matplotlib.pyplot as plt
-from geo_io import GeoData, get_date_range, offset_transformation
+from geo_io import GeoData, get_date_range, offset_transformation, swath_selection, make_square, df_to_excel
+import pdb
 
 
 PREFIX = r'plots\pss_plot_'
 MARKERSIZE = 1
+EDGECOLOR = 'black'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
 EPSG_basemap = 3857 
 EPSG_WGS84 = 4326
+proj_map = Proj(init=f'epsg:{EPSG_basemap}')
+proj_local = Proj(EPSG_31256_adapted)
+
 ZOOM = 13
 HIGH=60
 MEDIUM=35
+OFFSET_INLINE = 6000.0
+OFFSET_CROSSLINE = 3000.
 maptitle = ('VPs 3D Schonkirchen', 18)
 logger = Logger.getlogger()
 nl = '\n'
@@ -31,9 +39,8 @@ class PlotMap:
         self.start_date = start_date
         self.end_date = end_date
         self.swaths_selected = swaths_selected
-        self.patch = []
 
-        self.fig, self.ax = self.setup_map(figsize=(10, 10))
+        self.fig, self.ax = self.setup_map(figsize=(5, 5))
         self.plot_pss_data()
 
         connect = self.fig.canvas.mpl_connect
@@ -47,10 +54,10 @@ class PlotMap:
         fig, ax = plt.subplots(figsize=figsize)
 
         # plot the swath boundary
-        _, _, _, swaths_bnd_gdf = GeoData().filter_geo_data_by_swaths(swaths_selected=self.swaths_selected, swaths_only=True)
-        swaths_bnd_gdf.crs = EPSG_31256_adapted
-        swaths_bnd_gdf = swaths_bnd_gdf.to_crs(epsg=EPSG_basemap)
-        swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
+        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=self.swaths_selected, swaths_only=True)
+        swaths_bnd_gpd.crs = EPSG_31256_adapted
+        swaths_bnd_gpd = swaths_bnd_gpd.to_crs(epsg=EPSG_basemap)
+        swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
         # obtain the extent of the data based on swaths_bnd_gdf
         extent_map = ax.axis()
@@ -96,17 +103,50 @@ class PlotMap:
                         '2MEDIUM': ['cyan', f'medium > {MEDIUM}'],
                         '3LOW': ['yellow', f'low <= {MEDIUM}'],}
 
-        for ftype, data in vib_pss_gpd.groupby('force_level'):
-            data.plot(ax=self.ax,
-                      color=force_attrs[ftype][0],
-                      label=force_attrs[ftype][1],
-                      markersize=MARKERSIZE,)
+        for force_level,vib_pss in vib_pss_gpd.groupby('force_level'):
+            vib_pss.plot(ax=self.ax,
+                         color=force_attrs[force_level][0],
+                         label=force_attrs[force_level][1],
+                         markersize=MARKERSIZE,)
 
     def on_click(self, event):
         print(f'event: {event}')
-        self.update()
+        # If we're using a tool on the toolbar, don't add/draw a point...
+        if self.fig.canvas.toolbar._active is not None:
+            return
 
-    def update(self):
+        if event.button == 1:
+            self.add_patch(event.xdata, event.ydata)
+        elif event.button == 3:
+            self.delete_patch()
+
+    def add_patch(self, x_map, y_map):
+        # convert map point to local coordinate
+        x, y = transform(proj_map, proj_local, x_map, y_map)
+
+        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+                    y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
+        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+                    y + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
+        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+                    y + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
+        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+                    y + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
+ 
+        # set corner points of patch and convert back to map coordinates
+        patch_polygon = Polygon([c1, c2, c3, c4, c1]) 
+        patch_gpd = GeoSeries(patch_polygon)
+        patch_gpd.crs = EPSG_31256_adapted
+        patch_gpd = patch_gpd.to_crs(epsg=EPSG_basemap)
+        patch_gpd.plot(ax=self.ax, facecolor='', edgecolor='red', gid='patch')
+
+    def delete_patch(self):
+        not_ready = True
+        while not_ready: 
+            for plot_object in self.ax.collections:
+                if plot_object.get_gid() == 'patch':
+                    plot_object.remove()
+            not_ready = any([plot_object._gid == 'patch' for plot_object in self.ax.collections])
         self.blit()
 
     def safe_draw(self):
@@ -125,7 +165,9 @@ class PlotMap:
     def blit(self):
         self.blit_counter += 1
         print(f'in blit: {self.blit_counter}')
+        
         self.fig.canvas.restore_region(self.background)
+        plt.draw()
         self.fig.canvas.blit(self.fig.bbox)
 
     def show(self):
