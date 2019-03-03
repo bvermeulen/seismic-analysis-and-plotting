@@ -1,4 +1,4 @@
-from pss_read import read_pss_for_date_range
+from pss_io import read_pss_for_date_range
 from Utils.plogger import Logger
 import numpy as np
 import geopandas as gpd
@@ -21,7 +21,7 @@ Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 3
 HIGH=60
 MEDIUM=40
-maptitle = ('VPs acquired week 22: 11 - 17 February 2019', 18)
+maptitle = ('VPs acquired week 23: 18 - 24 February 2019', 18)
 logger = Logger.getlogger()
 nl = '\n'
 

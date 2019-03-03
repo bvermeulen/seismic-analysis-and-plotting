@@ -48,6 +48,7 @@ class Logger:
 #             return result
 #         return wrapper
 #     return _timed
+
 def parameterized(decorator_func):
     def layer(*args, **kwargs):
         def replace_func(func):

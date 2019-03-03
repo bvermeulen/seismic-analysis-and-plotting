@@ -2,6 +2,8 @@ import csv
 import glob
 import pandas as pd
 import numpy as np
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
 from datetime import timedelta
 from geo_io import daterange
 from Utils.plogger import Logger
@@ -12,7 +14,7 @@ LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
 LONG_MAX = 18
-
+EPSG_WGS84 = 4326
 
 class PssData:
     '''  method for handling PSS data '''
@@ -208,3 +210,25 @@ def read_pss_for_date_range(start_date, end_date):
     logger.info(f'total length: {len(vp_lats)}')
 
     return vp_longs, vp_lats, vp_forces
+
+
+def pss_group_force(start_date, end_date, high_force, medium_force):
+    def group_forces(forces, high, medium):
+        ''' helper function to group forces in LOW, MEDIUM , HIGH '''
+        force_levels = []
+        for force in forces:
+            if force > high:
+                force_levels.append('1HIGH')
+            elif force > medium:
+                force_levels.append('2MEDIUM')
+            elif force <= medium:
+                force_levels.append('3LOW')
+            else:
+                assert False, "this is an invalid option, check the code"
+        return force_levels
+    vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
+    vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
+    vib_pss_gpd = GeoDataFrame(crs={'init': f'epsg:{EPSG_WGS84}'}, geometry=vib_points_df)
+    vib_pss_gpd['force_level'] = group_forces(vp_forces, high_force, medium_force)
+
+    return vib_pss_gpd

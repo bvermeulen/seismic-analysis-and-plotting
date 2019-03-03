@@ -1,6 +1,6 @@
 import glob
 import numpy as np
-from pss_read import pss_read_file 
+from pss_io import pss_read_file 
 import matplotlib.pyplot as plt
 from scipy import stats
 from geo_io import get_date
