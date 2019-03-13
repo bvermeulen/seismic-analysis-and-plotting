@@ -81,7 +81,7 @@ class PlotMap:
 
         return fig, ax
 
-    @timed(logger)  #pylint: disable=no-value-for-parameter
+    # @timed(logger)  #pylint: disable=no-value-for-parameter
     def init_pss_dataframes(self):
         dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
         for i, _date in enumerate(dates):
@@ -89,7 +89,7 @@ class PlotMap:
             _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
             self.pss_dataframes[i] = _pss_gpd
 
-    @timed(logger) #pylint: disable=no-value-for-parameter
+    # @timed(logger) #pylint: disable=no-value-for-parameter
     def update_right_pss_dataframes(self):
         self.pss_dataframes[0] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[2]
@@ -98,7 +98,7 @@ class PlotMap:
         _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
         self.pss_dataframes[2] = _pss_gpd
 
-    @timed(logger) #pylint: disable=no-value-for-parameter
+    # @timed(logger) #pylint: disable=no-value-for-parameter
     def update_left_pss_dataframes(self):
         self.pss_dataframes[2] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[0]
@@ -107,7 +107,7 @@ class PlotMap:
         _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
         self.pss_dataframes[0] = _pss_gpd
 
-    @timed(logger) #pylint: disable=no-value-for-parameter
+    # @timed(logger) #pylint: disable=no-value-for-parameter
     def plot_pss_data(self, index):
         '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
 
@@ -144,7 +144,7 @@ class PlotMap:
             self.delete_from_map('patch')
             self.blit()
 
-    @timed(logger) #pylint: disable=no-value-for-parameter
+    # @timed(logger) #pylint: disable=no-value-for-parameter
     def on_key(self, event):
         if event.key not in ['right', 'left']:
             return
@@ -207,7 +207,7 @@ class PlotMap:
         self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
         self.blit()
 
-    @timed(logger) #pylint: disable=no-value-for-parameter
+    # @timed(logger) #pylint: disable=no-value-for-parameter
     def blit(self):
         
         self.fig.canvas.restore_region(self.background)

@@ -14,14 +14,13 @@ MAP_FILE = r'BackgroundMap/3D_31256.jpg'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-EPSG_basemap = 3857 
 EPSG_WGS84 = 4326
 
 Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 3
 HIGH=60
 MEDIUM=40
-maptitle = ('VPs acquired week 23: 18 - 24 February 2019', 18)
+maptitle = ('VPs acquired week 24: 25 February - 3 March 2019', 18)
 logger = Logger.getlogger()
 nl = '\n'
 
