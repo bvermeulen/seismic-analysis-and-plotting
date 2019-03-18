@@ -44,7 +44,7 @@ def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/t
     basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
     ax.imshow(basemap, extent=extent, interpolation='bilinear')
 
-
+@timed(logger)
 def pss_plot_function(start_date, end_date, swaths_selected=[], saveplot=False):
 
     _, ax = plt.subplots(figsize=(10, 10))    
