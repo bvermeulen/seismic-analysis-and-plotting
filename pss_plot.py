@@ -1,6 +1,6 @@
 import contextily as ctx
 from pss_io import read_pss_for_date_range
-from Utils.plogger import Logger
+from Utils.plogger import Logger, timed
 import numpy as np
 import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
@@ -40,7 +40,7 @@ def group_forces(forces, high, medium):
 
 
 def add_basemap(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
-    logger.info(f'url: {url}')
+    logger.info(f'url: {url}, plot_area: {plot_area}')
     basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
     ax.imshow(basemap, extent=extent, interpolation='bilinear')
 

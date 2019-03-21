@@ -10,6 +10,10 @@ from Utils.plogger import Logger
 
 
 PREFIX = r'RAW_PSS\PSS_'
+EPSG_3125631256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
+                          " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
+                          "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
+
 LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
@@ -76,7 +80,7 @@ class PssData:
         self.fleets = fleets_copy 
     
     def vp_df(self):
-        '''  method to retrieve datafram for vps
+        '''  method to retrieve dataframe for vps
         '''
         logger = Logger.getlogger()
         vp_lats = []
@@ -229,6 +233,8 @@ def pss_group_force(start_date, end_date, high_force, medium_force):
     vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     vib_pss_gpd = GeoDataFrame(crs={'init': f'epsg:{EPSG_WGS84}'}, geometry=vib_points_df)
+    vib_pss_gpd = vib_pss_gpd.to_crs(EPSG_3125631256_adapted)
     vib_pss_gpd['force_level'] = group_forces(vp_forces, high_force, medium_force)
+
 
     return vib_pss_gpd

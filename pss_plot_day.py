@@ -1,32 +1,33 @@
-import contextily as ctx
-from pss_io import pss_group_force
-from Utils.plogger import Logger, timed
-import numpy as np
-import geopandas as gpd
+import sys
+from datetime import timedelta
+import matplotlib.pyplot as plt
 from pyproj import Proj, transform
 from geopandas import GeoSeries
 from shapely.geometry import Polygon
-import matplotlib.pyplot as plt
-from geo_io import GeoData, get_date, offset_transformation, swath_selection
-from datetime import timedelta
+
+from pss_io import pss_group_force
+from geo_io import GeoData, get_date, offset_transformation
+from pss_plot import add_basemap as add_basemap_OSM
+from pss_plot_jpg import add_basemap as add_basemap_local
+from Utils.plogger import Logger, timed
 
 
-PREFIX = r'plots\pss_plot_'
-MARKERSIZE = 1
+MARKERSIZE = 0.02
 EDGECOLOR = 'black'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
 
-EPSG_basemap = 3857 
-proj_map = Proj(init=f'epsg:{EPSG_basemap}')
+maptypes = ['local', 'OSM']
+EPSG_OSM = 3857 
+proj_map = Proj(init=f'epsg:{EPSG_OSM}')
 proj_local = Proj(EPSG_31256_adapted)
 
 ZOOM = 13
 HIGH_FORCE=60
 MEDIUM_FORCE=35
 OFFSET_INLINE = 6000.0
-OFFSET_CROSSLINE = 6000.
+OFFSET_CROSSLINE = 6000.0
 maptitle = ('VPs 3D Schonkirchen', 18)
 logger = Logger.getlogger()
 nl = '\n'
@@ -35,21 +36,20 @@ class PlotMap:
     '''  class contains method to plot the pss data, swath boundary, map and 
          active patch
     '''
-    def __init__(self, start_date, swaths_selected=[]):
+    def __init__(self, start_date, maptype=None, swaths_selected=[]):
         self.date = start_date
+        self.maptype = maptype
         self.swaths_selected = swaths_selected
         self.pss_dataframes = [None, None, None]
         self.init_pss_dataframes()
 
         self.fig, self.ax = self.setup_map(figsize=(5, 5))
+        self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
 
         connect = self.fig.canvas.mpl_connect
         connect('button_press_event', self.on_click)
         connect('key_press_event', self.on_key)
-        self.draw_cid = connect('draw_patch', self.grab_background)
-        self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
 
-        # self.x, self.y = 1820000, 6150000
         self.date_text_x, self.date_text_y = 0.80, 0.95
         self.plot_pss_data(1)
 
@@ -61,20 +61,21 @@ class PlotMap:
         _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=self.swaths_selected, 
                                                                       swaths_only=True,
                                                                       source_boundary=True,)
-        swaths_bnd_gpd.crs = EPSG_31256_adapted 
-        swaths_bnd_gpd = swaths_bnd_gpd.to_crs(epsg=EPSG_basemap)
+        swaths_bnd_gpd = self.convert_to_map(swaths_bnd_gpd)
         swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
         # obtain the extent of the data based on swaths_bnd_gdf
         extent_map = ax.axis()
         logger.info(f'extent data swaths: {extent_map}')
 
-        # plot the basemap background
-        url = 'http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'
+        # plot the selected basemap background
         plot_area = (extent_map[0], extent_map[2], extent_map[1], extent_map[3])
-        logger.info(f'url: {url}, plot_area: {plot_area}')
-        basemap, extent = ctx.bounds2img(*plot_area, zoom=ZOOM, url=url)
-        ax.imshow(basemap, extent=extent, interpolation='bilinear')
+        if self.maptype == maptypes[0]:
+            add_basemap_local(ax)
+        elif self.maptype == maptypes[1]:
+            add_basemap_OSM(ax, plot_area, ZOOM)
+        else:
+            pass  # no basemap background
 
         # restore original x/y limits
         ax.axis(extent_map)
@@ -86,7 +87,7 @@ class PlotMap:
         dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
         for i, _date in enumerate(dates):
             _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
-            _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
+            _pss_gpd = self.convert_to_map(_pss_gpd)
             self.pss_dataframes[i] = _pss_gpd
 
     # @timed(logger) #pylint: disable=no-value-for-parameter
@@ -95,7 +96,7 @@ class PlotMap:
         self.pss_dataframes[1] = self.pss_dataframes[2]
         _date = self.date+timedelta(1)
         _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
-        _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
+        _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[2] = _pss_gpd
 
     # @timed(logger) #pylint: disable=no-value-for-parameter
@@ -104,7 +105,7 @@ class PlotMap:
         self.pss_dataframes[1] = self.pss_dataframes[0]
         _date = self.date-timedelta(1)
         _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
-        _pss_gpd = _pss_gpd.to_crs(epsg=EPSG_basemap)
+        _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[0] = _pss_gpd
 
     # @timed(logger) #pylint: disable=no-value-for-parameter
@@ -127,7 +128,6 @@ class PlotMap:
         for force_level,vib_pss in vib_pss_gpd.groupby('force_level'):
             vib_pss.plot(ax=self.ax,
                          color=force_attrs[force_level][0],
-                         label=force_attrs[force_level][1],
                          markersize=MARKERSIZE, gid='pss')
 
         self.blit()
@@ -144,7 +144,7 @@ class PlotMap:
             self.delete_from_map('patch')
             self.blit()
 
-    # @timed(logger) #pylint: disable=no-value-for-parameter
+    @timed(logger) #pylint: disable=no-value-for-parameter
     def on_key(self, event):
         if event.key not in ['right', 'left']:
             return
@@ -162,11 +162,13 @@ class PlotMap:
             logger.info('-------------------------------------------------------------------------')
             self.update_left_pss_dataframes()
 
-
     def add_patch(self, x_map, y_map):
         # convert map point to local coordinate
-        x, y = transform(proj_map, proj_local, x_map, y_map)
-
+        if self.maptype == maptypes[1]:
+            x, y = transform(proj_map, proj_local, x_map, y_map)
+        else:
+            x, y = x_map, y_map
+        
         c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
                     y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
         c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
@@ -180,7 +182,7 @@ class PlotMap:
         patch_polygon = Polygon([c1, c2, c3, c4, c1]) 
         patch_gpd = GeoSeries(patch_polygon)
         patch_gpd.crs = EPSG_31256_adapted
-        patch_gpd = patch_gpd.to_crs(epsg=EPSG_basemap)
+        patch_gpd = self.convert_to_map(patch_gpd)
         patch_gpd.plot(ax=self.ax, facecolor='', edgecolor='red', gid='patch')
 
     def delete_from_map(self, gid):
@@ -188,28 +190,21 @@ class PlotMap:
             if plot_object.get_gid() == gid:
                 plot_object.remove()
 
-        try:
-            self.date_gid.remove()
-        except ValueError:
+        if gid == 'pss':
+            try:
+                self.date_gid.remove()
+            except ValueError:
+                pass
+
+    def convert_to_map(self, df):
+        if self.maptype == maptypes[1]:
+            df = df.to_crs(epsg=EPSG_OSM)
+        else:
             pass
+        return df
 
-        # self.blit()
-
-    def safe_draw(self):
-        ''' temporary discinnect the draw event callback to avoid recursion error '''
-        canvas = self.fig.canvas
-        canvas.mpl_disconnect(self.draw_cid)
-        canvas.draw()
-        self.draw_cid = self.fig.canvas.mpl_connect('draw_event', self.grab_background)
-
-    def grab_background(self, event=None):
-        self.safe_draw()
-        self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
-        self.blit()
-
-    # @timed(logger) #pylint: disable=no-value-for-parameter
+    @timed(logger) #pylint: disable=no-value-for-parameter
     def blit(self):
-        
         self.fig.canvas.restore_region(self.background)
         plt.draw()
         self.fig.canvas.blit(self.fig.bbox)
@@ -217,14 +212,31 @@ class PlotMap:
     def show(self):
         plt.show()
 
-def main():
+
+def main(maptype):
     start_date = get_date()
-    PlotMap(start_date).show()
+    PlotMap(start_date, maptype=maptype).show()
 
 if __name__ == "__main__":
+    '''  Interactive display of production. Background maps can be 
+         selected by giving an argument.
+         :arguments:
+            local: local map (jpg) - very slow
+            OSM: OpenStreetMap - slow
+            No arguments or anything else: no background map
+    '''
+
     logger.info(f'{nl}==============================================='\
                 f'{nl}===>   Running: pss_plot_day (optimized)   <==='\
                 f'{nl}===============================================')
 
-    main()
+    try:
+        maptype = sys.argv[1]
+        if maptype not in maptypes:
+            maptype = None
+    except IndexError:
+        maptype = None
+
+    logger.info(f'maptype: {maptype}')
+    main(maptype)
     

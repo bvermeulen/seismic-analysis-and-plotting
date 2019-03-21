@@ -1,6 +1,6 @@
 from pss_io import pss_group_force
-from geo_io import GeoData, get_date, get_date_range, daterange, swath_selection
-from pss_plot_jpg import add_basemap
+from geo_io import GeoData, get_date, get_date_range, daterange
+from pss_plot_jpg import add_basemap as add_basemap_jpg
 from Utils.plogger import Logger, timed
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,10 +11,7 @@ from datetime import date, timedelta
 PREFIX = r'plots_jpg\pss_plot_'
 MAP_FILE = r'BackgroundMap/3D_31256.jpg'
 EDGECOLOR = 'black'
-EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
-                     " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
-                     "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-EPSG_WGS84 = 4326
+
 Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 0.02
 MARKERSCALE = 5.0
@@ -35,10 +32,10 @@ class PlotMap:
         self.fig, self.ax = self.setup_map(figsize=(FIGSIZE, FIGSIZE))
         self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
 
+        self.force_levels = ['3LOW', '2MEDIUM', '1HIGH']
         self.force_attrs = { '1HIGH': ['red', f'high > {HIGH_FORCE}'],
                              '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
                              '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
-        self.force_levels = ['3LOW', '2MEDIUM', '1HIGH']
 
 
     def setup_map(self, figsize):
@@ -49,7 +46,6 @@ class PlotMap:
         _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=[0], 
                                                                       swaths_only=True,
                                                                       source_boundary=False,)
-        swaths_bnd_gpd.crs = EPSG_31256_adapted 
         swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
         # obtain the extent of the data based on swaths_bnd_gdf
@@ -57,7 +53,7 @@ class PlotMap:
         logger.info(f'extent data swaths: {extent_map}')
 
         # plot the basemap background
-        add_basemap(ax)
+        add_basemap_jpg(ax)
 
         # restore original x/y limits
         ax.axis(extent_map)
@@ -70,7 +66,6 @@ class PlotMap:
         logger.info(f'---------{to_date.strftime("%d-%B-%y")}-----------------------------')
 
         vib_pss_gpd = pss_group_force(from_date, to_date, HIGH_FORCE, MEDIUM_FORCE)
-        vib_pss_gpd = vib_pss_gpd.to_crs(EPSG_31256_adapted)
 
         # plot the VP grouped by force_level
 
