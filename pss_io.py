@@ -5,20 +5,19 @@ import numpy as np
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 from datetime import timedelta
-from geo_io import daterange
+
+from geo_io import daterange, EPSG_31256_adapted, EPSG_WGS84
 from Utils.plogger import Logger
 
 
 PREFIX = r'RAW_PSS\PSS_'
-EPSG_3125631256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
-                          " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
-                          "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
-
 LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
 LONG_MAX = 18
-EPSG_WGS84 = 4326
+
+logger = Logger.getlogger()
+
 
 class PssData:
     '''  method for handling PSS data '''
@@ -82,7 +81,6 @@ class PssData:
     def vp_df(self):
         '''  method to retrieve dataframe for vps
         '''
-        logger = Logger.getlogger()
         vp_lats = []
         vp_longs = []
         vp_forces = []
@@ -155,7 +153,6 @@ def read_pss_file_xls(xls_file):
 
 
 def pss_read_file(_date):
-    logger = Logger.getlogger()
 
     _pss_file = PREFIX + ''.join([f'{int(_date.strftime("%Y")):04}', '_'
                                   f'{int(_date.strftime("%m")):02}', '_' 
@@ -194,8 +191,6 @@ def read_pss_for_date_range(start_date, end_date):
     :vp_longs: numpy array
     :vp_forces: numpy array
     '''
-    logger = Logger.getlogger()
-    
     vp_lats = np.array([])
     vp_longs = np.array([])
     vp_forces = np.array([])
@@ -233,8 +228,7 @@ def pss_group_force(start_date, end_date, high_force, medium_force):
     vp_longs, vp_lats, vp_forces = read_pss_for_date_range(start_date, end_date)
     vib_points_df = [Point(xy) for xy in zip(vp_longs, vp_lats)]
     vib_pss_gpd = GeoDataFrame(crs={'init': f'epsg:{EPSG_WGS84}'}, geometry=vib_points_df)
-    vib_pss_gpd = vib_pss_gpd.to_crs(EPSG_3125631256_adapted)
+    vib_pss_gpd = vib_pss_gpd.to_crs(EPSG_31256_adapted)
     vib_pss_gpd['force_level'] = group_forces(vp_forces, high_force, medium_force)
-
 
     return vib_pss_gpd

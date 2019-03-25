@@ -7,10 +7,14 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from shapely.ops import cascaded_union
 from geopandas import GeoSeries, GeoDataFrame, read_file, overlay
-from Utils.plogger import Logger
-from Utils.utils import string_to_value_or_nan
+import matplotlib.pyplot as plt
+from PIL import Image
+import contextily as ctx
 import inspect
 import re
+
+from Utils.plogger import Logger
+from Utils.utils import string_to_value_or_nan
 
 
 PREFIX = r'autoseis_data\OUT_'
@@ -18,6 +22,9 @@ geo_shapefile = './areas_shapes/geo_shapefile.shp'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
                      " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
                      "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
+EPSG_OSM = 3857
+EPSG_WGS84 = 4326
+
 ASK_DATE = 'date (YYMMDD) [q - quit]: '
 
 # start logger
@@ -130,16 +137,53 @@ def swath_selection(swaths_selected=[]):
 
     return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
-def make_square():
-    ''' DEBUG 
-        510000	5350000	520000	5340000
-    '''
-    c1 = (530000, 5365000)
-    c2 = (520000, 5365000)
-    c3 = (520000, 5355000)
-    c4 = (530000, 5355000)
-    return Polygon([c1, c2, c3, c4, c1])
 
+def add_basemap_osm(ax, plot_area, zoom, url='http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'):
+    '''  load the map in OpenStreetMap format from url
+
+         Parameters:
+         :input:
+            ax: matplotlib axes
+            plot_area: extent of the map to be taken
+            zoom: zoom factor for map (13 seems to be good)
+            url: url with map information
+        :output: none
+    ''' 
+    logger.info(f'url: {url}, plot_area: {plot_area}')
+    basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
+    ax.imshow(basemap, extent=extent, interpolation='bilinear')
+
+
+def add_basemap_local(ax):
+    '''  load the map in picture format and the georeference information from the jgW file 
+         in the same folder; the crs has to be the same as the data 
+         Parameters:
+         :input: ax 
+         :output: none  
+    '''
+    MAP_FILE = r'BackgroundMap/3D_31256.jpg'
+    Image.MAX_IMAGE_PIXELS = 2000000000
+
+    # read the map image file and set the extent
+    fname_jgW = MAP_FILE[:-4] + '.jgW' 
+    basemap = plt.imread(MAP_FILE)
+    cols = basemap.shape[0]
+    rows = basemap.shape[1]
+
+    with open(fname_jgW, 'tr') as jgw:
+        dx = float(jgw.readline())
+        _ = jgw.readline()  # to do with rotation of the map to be ignored
+        _ = jgw.readline()  # to do with rotation of the map to be ignored
+        dy = float(jgw.readline())
+        x_min = float(jgw.readline())
+        y_max = float(jgw.readline())
+    
+    x_max = x_min + rows * dx
+    y_min = y_max + cols * dy
+    logger.info(f'filename: {MAP_FILE}, (rows: {rows}, colums: {cols}), \n'\
+                f'extent map crs:{EPSG_31256_adapted}: \n {(x_min, x_max, y_min, y_max)}')
+
+    ax.imshow(basemap, extent=(x_min, x_max, y_min, y_max), interpolation='bilinear')
 
 class GeoData:
     '''  method for handling Geo data '''

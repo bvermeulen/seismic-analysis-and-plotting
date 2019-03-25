@@ -6,20 +6,16 @@ from geopandas import GeoSeries
 from shapely.geometry import Polygon
 
 from pss_io import pss_group_force
-from geo_io import GeoData, get_date, offset_transformation
-from pss_plot import add_basemap as add_basemap_OSM
-from pss_plot_jpg import add_basemap as add_basemap_local
+from geo_io import (GeoData, get_date, offset_transformation, 
+                    add_basemap_local, add_basemap_osm,
+                    EPSG_31256_adapted, EPSG_OSM)
 from Utils.plogger import Logger, timed
 
 
 MARKERSIZE = 0.02
 EDGECOLOR = 'black'
-EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
-                     " +k=1 +x_0=+500000 +y_0=0 +ellps=bessel "\
-                     "+towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs"
+maptypes = ['local', 'osm']
 
-maptypes = ['local', 'OSM']
-EPSG_OSM = 3857 
 proj_map = Proj(init=f'epsg:{EPSG_OSM}')
 proj_local = Proj(EPSG_31256_adapted)
 
@@ -73,7 +69,7 @@ class PlotMap:
         if self.maptype == maptypes[0]:
             add_basemap_local(ax)
         elif self.maptype == maptypes[1]:
-            add_basemap_OSM(ax, plot_area, ZOOM)
+            add_basemap_osm(ax, plot_area, ZOOM)
         else:
             pass  # no basemap background
 
@@ -231,7 +227,7 @@ if __name__ == "__main__":
                 f'{nl}===============================================')
 
     try:
-        maptype = sys.argv[1]
+        maptype = sys.argv[1].lower()
         if maptype not in maptypes:
             maptype = None
     except IndexError:

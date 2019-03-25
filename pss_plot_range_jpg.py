@@ -1,18 +1,17 @@
-from pss_io import pss_group_force
-from geo_io import GeoData, get_date, get_date_range, daterange
-from pss_plot_jpg import add_basemap as add_basemap_jpg
-from Utils.plogger import Logger, timed
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from PIL import Image
 from datetime import date, timedelta
 
+from pss_io import pss_group_force
+from geo_io import (GeoData, get_date, get_date_range, daterange,
+                    add_basemap_local, add_basemap_osm)
+from Utils.plogger import Logger, timed
+
+
 PREFIX = r'plots_jpg\pss_plot_'
-MAP_FILE = r'BackgroundMap/3D_31256.jpg'
 EDGECOLOR = 'black'
 
-Image.MAX_IMAGE_PIXELS = 2000000000
 MARKERSIZE = 0.02
 MARKERSCALE = 5.0
 FIGSIZE = 8
@@ -53,7 +52,7 @@ class PlotMap:
         logger.info(f'extent data swaths: {extent_map}')
 
         # plot the basemap background
-        add_basemap_jpg(ax)
+        add_basemap_local(ax)
 
         # restore original x/y limits
         ax.axis(extent_map)
