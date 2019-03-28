@@ -34,3 +34,54 @@ def string_to_value_or_nan(string_value, type):
         value = np.NaN
     
     return value
+
+
+def average_with_outlier_removed(input_list, allowed_range):
+    '''  calculates average of elements in a list with values within an 
+         allowed range. One outlier (i.e. an element with a value that exceeds
+         the allowed range) will be removed. If there is a choice between
+         valid ranges then choose the one with smallest range. If there are 
+         no allowed ranges then the funcion returns None
+
+         Parameter:
+         :input_list: list with values to be averaged
+         :allowed_range: range that is allowed for values to deviate
+
+         Return:
+         :average: average value of list or None if there are more than one value
+                   exceeding the allowed_range
+    '''
+    input_list.sort()
+    elements = len(input_list)
+
+    #check if input_list is not empty to avoid index errors
+    if elements == 0:
+        return None
+
+    # if there is only one element then return this value
+    elif elements == 1:
+        return input_list[0]
+
+    # if there are 2 elements they must be within allowed_range
+    elif elements == 2:
+        if abs(input_list[1] - input_list[0]) < allowed_range:
+            return sum(input_list)/ 2
+        else:
+            return None
+
+    # if all elements are within the allowed_range calculate average
+    elif abs(input_list[-1] - input_list[0]) < allowed_range:
+        return sum(input_list)/ elements
+
+    # if there is a choice between the two ranges choose the smallest
+    elif abs(input_list[0] - input_list[-2]) < abs(input_list[1] - input_list[-1]):
+        if abs(input_list[0] - input_list[-2]) < allowed_range:
+            return sum(input_list[0:-1])/(elements - 1)
+        else:
+            return None
+    
+    else:
+        if abs(input_list[1] - input_list[-1]) < allowed_range:
+            return sum(input_list[1:])/ (elements - 1)
+        else:
+            return None

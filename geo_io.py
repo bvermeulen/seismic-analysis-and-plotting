@@ -47,7 +47,7 @@ def get_date():
 
 def daterange(start_date, end_date):
     assert start_date <= end_date, f'start date {start_date} must be less than '\
-                                  f'or equal to end date {end_date}'
+                                   f'or equal to end date {end_date}'
 
     for n in range(int ((end_date - start_date).days)+1):
         yield start_date + timedelta(n)

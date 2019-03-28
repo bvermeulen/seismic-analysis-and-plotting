@@ -5,7 +5,7 @@ from pyproj import Proj, transform
 from geopandas import GeoSeries
 from shapely.geometry import Polygon
 
-from pss_io import pss_group_force
+from pss_io import obtain_vps_for_date_range
 from geo_io import (GeoData, get_date, offset_transformation, 
                     add_basemap_local, add_basemap_osm,
                     EPSG_31256_adapted, EPSG_OSM)
@@ -82,7 +82,7 @@ class PlotMap:
     def init_pss_dataframes(self):
         dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
         for i, _date in enumerate(dates):
-            _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
+            _pss_gpd = obtain_vps_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
             _pss_gpd = self.convert_to_map(_pss_gpd)
             self.pss_dataframes[i] = _pss_gpd
 
@@ -91,7 +91,7 @@ class PlotMap:
         self.pss_dataframes[0] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[2]
         _date = self.date+timedelta(1)
-        _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
+        _pss_gpd = obtain_vps_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
         _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[2] = _pss_gpd
 
@@ -100,7 +100,7 @@ class PlotMap:
         self.pss_dataframes[2] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[0]
         _date = self.date-timedelta(1)
-        _pss_gpd = pss_group_force(_date, _date, HIGH_FORCE, MEDIUM_FORCE)
+        _pss_gpd = obtain_vps_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
         _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[0] = _pss_gpd
 
@@ -145,17 +145,16 @@ class PlotMap:
         if event.key not in ['right', 'left']:
             return
 
+        logger.info(f'|------------------------| {event.key} |------------------------|')
         self.delete_from_map('pss')
         if event.key == 'right':
             self.date += timedelta(1)
             self.plot_pss_data(2)
-            logger.info('-------------------------------------------------------------------------')
             self.update_right_pss_dataframes()
 
         elif event.key == 'left':
             self.date -= timedelta(1)
             self.plot_pss_data(0)
-            logger.info('-------------------------------------------------------------------------')
             self.update_left_pss_dataframes()
 
     def add_patch(self, x_map, y_map):

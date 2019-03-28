@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from datetime import date, timedelta
 
-from pss_io import pss_group_force
+from pss_io import obtain_vps_for_date_range
 from geo_io import (GeoData, get_date, get_date_range, daterange,
                     add_basemap_local, add_basemap_osm)
 from Utils.plogger import Logger, timed
@@ -64,7 +64,7 @@ class PlotMap:
         '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
         logger.info(f'---------{to_date.strftime("%d-%B-%y")}-----------------------------')
 
-        vib_pss_gpd = pss_group_force(from_date, to_date, HIGH_FORCE, MEDIUM_FORCE)
+        vib_pss_gpd = obtain_vps_for_date_range(from_date, to_date, MEDIUM_FORCE, HIGH_FORCE)
 
         # plot the VP grouped by force_level
 
@@ -77,7 +77,7 @@ class PlotMap:
         for force_level in self.force_levels:
             try:
                 vib_pss = vib_pss_gpd[vib_pss_gpd['force_level'] == force_level]
-            except TypeError:
+            except (TypeError, KeyError):
                 continue
             
             vib_pss.plot(ax=self.ax, 
@@ -145,15 +145,16 @@ def main():
         print(f'plotted map for {start_date.strftime("%d-%B-%y")}')
         start_date += timedelta(1)
 
-    for day in daterange(start_date, end_date):
-        plt_map.plot_pss_data(day, day)
-        print(f'plotted map for {day.strftime("%d-%B-%y")}')
+    if start_date <= end_date:
+        for day in daterange(start_date, end_date):
+            plt_map.plot_pss_data(day, day)
+            print(f'plotted map for {day.strftime("%d-%B-%y")}')
 
 
 if __name__ == "__main__":
-    logger.info(f'{nl}============================================'\
-                f'{nl}===>   Running: pss_plot_range_jpg      <==='\
-                f'{nl}============================================')
+    logger.info(f'{nl}=========================================='\
+                f'{nl}===>     Running: pss_plot_range      <==='\
+                f'{nl}==========================================')
 
     main()
     
