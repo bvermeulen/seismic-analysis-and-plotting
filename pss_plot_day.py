@@ -192,7 +192,7 @@ class PlotMap:
                 pass
 
     def convert_to_map(self, df):
-        if self.maptype == maptypes[1]:
+        if self.maptype == maptypes[1] and not df.empty:
             df = df.to_crs(epsg=EPSG_OSM)
         else:
             pass
