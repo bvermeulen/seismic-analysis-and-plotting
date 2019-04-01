@@ -1,3 +1,4 @@
+import set_gdal_pyproj_environment_variables
 import sys
 from datetime import timedelta
 import matplotlib.pyplot as plt

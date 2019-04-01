@@ -1,3 +1,4 @@
+import set_gdal_pyproj_environment_variables
 from geo_io import GeoData, get_date, df_to_excel
 import pandas as pd
 import numpy as np

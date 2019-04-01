@@ -1,3 +1,4 @@
+import set_gdal_pyproj_environment_variables
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D

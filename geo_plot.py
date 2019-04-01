@@ -1,3 +1,4 @@
+import set_gdal_pyproj_environment_variables
 import contextily as ctx
 import pandas as pd
 from geopandas import GeoDataFrame, GeoSeries
