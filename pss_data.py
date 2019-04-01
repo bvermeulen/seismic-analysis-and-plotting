@@ -1,3 +1,4 @@
+import set_gdal_pyproj_environment_variables
 import glob
 import numpy as np
 from pss_io import pss_read_file 
