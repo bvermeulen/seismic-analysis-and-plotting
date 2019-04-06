@@ -99,6 +99,7 @@ class PssData:
             list_record.add(pss[self.attr['record_index']])
 
         list_record = list(list_record)
+        list_record.sort()
 
         # and loop over the records 
         for record in list_record:
