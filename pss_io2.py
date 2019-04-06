@@ -98,7 +98,7 @@ class PssData:
         for pss in self.pss_data:
             list_record.add(pss[self.attr['record_index']])
 
-        # make a sort
+        # make a sort and test
         list_record = list(list_record)
         list_record.sort()
 
