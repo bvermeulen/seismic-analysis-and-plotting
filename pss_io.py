@@ -16,7 +16,7 @@ LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
 LONG_MAX = 18
-ALLOWED_FORCE_RANGE = 10
+ALLOWED_FORCE_RANGE = 12
 
 logger = Logger.getlogger()
 nl = '\n'
@@ -93,12 +93,14 @@ class PssData:
         vp_longs = []
         vp_forces = []
         
-        # make a list of all records
+        # make a list of all unique records and sort 
         list_record = set()
         for pss in self.pss_data:
             list_record.add(pss[self.attr['record_index']])
 
         list_record = list(list_record)
+        list_record.sort()
+        _index = 0
 
         # and loop over the records 
         for record in list_record:
@@ -106,7 +108,10 @@ class PssData:
             _vp_long = 0
             _forces = []
             _count = 0
-            for pss in self.pss_data:
+
+            # loop over a narrow range of pss_data records starting at where
+            # last loop stopped
+            for index, pss in enumerate(self.pss_data[_index:]):
                 if record == pss[self.attr['record_index']]:
                     vp_lat = float(pss[self.attr['lat']])
                     vp_long = float(pss[self.attr['long']])
@@ -120,7 +125,14 @@ class PssData:
                     else:
                         logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
                                     f'{(vp_lat, vp_long)}')
-                                    
+                else:
+                    # as pss_data record numbers are sequentially stop the loop  
+                    # as soon as this is greater than the currect record number
+                    # and set a new index start value
+                    if pss[self.attr['record_index']] > record:
+                        _index += index
+                        break  
+
             if _count > 0:
                 _average_force = average_with_outlier_removed(_forces, 
                                     ALLOWED_FORCE_RANGE)
