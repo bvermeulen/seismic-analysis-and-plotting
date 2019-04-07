@@ -7,7 +7,7 @@ from shapely.geometry import Point
 from datetime import timedelta
 
 from geo_io import daterange, EPSG_31256_adapted, EPSG_WGS84
-from Utils.plogger import Logger
+from Utils.plogger import Logger, timed
 from Utils.utils import average_with_outlier_removed
 
 
@@ -16,7 +16,7 @@ LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
 LONG_MAX = 18
-ALLOWED_FORCE_RANGE = 12
+ALLOWED_FORCE_RANGE = 10
 
 logger = Logger.getlogger()
 nl = '\n'
@@ -24,6 +24,7 @@ nl = '\n'
 
 class PssData:
     '''  method for handling PSS data '''
+
     def __init__(self, pss_input_data, medium_force, high_force):
         self.pss_data = pss_input_data
         self.medium_force = medium_force
@@ -58,7 +59,10 @@ class PssData:
                 
         for i in range(len(delete_list)-1, -1, -1):
             del self.pss_data[delete_list[i]]
-            
+
+        #sort pss data on File Num
+        self.pss_data = sorted(self.pss_data, key=lambda x: x[self.attr['record_index']])
+
     def determine_fleets(self):
         # determine fleets
         fleets = set()
@@ -125,13 +129,17 @@ class PssData:
                     else:
                         logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
                                     f'{(vp_lat, vp_long)}')
+
+                # as pss_data record numbers are sequentially stop the loop  
+                # as soon as this is greater than the currect record number
+                # and set a new index start value
+                elif pss[self.attr['record_index']] > record:
+                    _index += index
+                    break  
+
+                # assumption is that pss_data is sequentially ordered
                 else:
-                    # as pss_data record numbers are sequentially stop the loop  
-                    # as soon as this is greater than the currect record number
-                    # and set a new index start value
-                    if pss[self.attr['record_index']] > record:
-                        _index += index
-                        break  
+                    assert False, f'pss_data is not sequential: {record}'
 
             if _count > 0:
                 _average_force = average_with_outlier_removed(_forces, 
