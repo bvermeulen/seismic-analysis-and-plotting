@@ -7,6 +7,7 @@ from shapely.geometry import Point
 from datetime import timedelta
 
 from geo_io import daterange, EPSG_31256_adapted, EPSG_WGS84
+from pss_attr import pss_attr
 from Utils.plogger import Logger, timed
 from Utils.utils import average_with_outlier_removed
 
@@ -25,34 +26,20 @@ nl = '\n'
 class PssData:
     '''  method for handling PSS data '''
 
-    def __init__(self, pss_input_data, medium_force, high_force):
+    def __init__(self, pss_input_data):
         self.pss_data = pss_input_data
-        self.medium_force = medium_force
-        self.high_force = high_force 
-
-        self.attr = {}
-        self.attr['unit_id'] = int(self.pss_data[0].index('Unit ID'))
-        self.attr['record_index'] = int(self.pss_data[0].index('File Num'))
-        self.attr['force_avg'] = int(self.pss_data[0].index('Force Avg'))
-        self.attr['void'] = int(self.pss_data[0].index('Void'))
-        self.attr['comment'] = int(self.pss_data[0].index('Comment'))
-        self.attr['lat'] = int(self.pss_data[0].index('Lat'))
-        self.attr['long'] = int(self.pss_data[0].index('Lon'))
-        self.attr['drive'] = int(self.pss_data[0].index('Force Out'))
-        self.attr['param_checksum'] = int(self.pss_data[0].index('Param Checksum'))
-        del self.pss_data[0]
 
         # clean PSS data
         delete_list = []
         for i, pss in enumerate(self.pss_data):
-            if pss[self.attr['void']] == 'Void':
+            if pss[pss_attr['Void']] == 'Void':
                 delete_list.append(i)
-            elif not pss[self.attr['record_index']]:
+            elif not pss[pss_attr['File Num']]:
                 delete_list.append(i)
-            elif int(pss[self.attr['force_avg']]) == 0:
+            elif int(pss[pss_attr['Force Avg']]) == 0:
                 delete_list.append(i)
             try:
-                if pss[self.attr['comment']][-10:] == 'been shot!': 
+                if pss[pss_attr['Comment']][-10:] == 'been shot!': 
                     delete_list.append(i)
             except:
                 pass
@@ -61,7 +48,7 @@ class PssData:
             del self.pss_data[delete_list[i]]
 
         #sort pss data on File Num
-        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[self.attr['record_index']]))
+        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[pss_attr['File Num']]))
 
     def determine_fleets(self):
         # determine fleets
@@ -69,14 +56,14 @@ class PssData:
         record = 0
         _fleet = set()
         for pss in self.pss_data:
-            if int(pss[self.attr['record_index']]) == record:
-                _fleet.add(int(pss[self.attr['unit_id']]))
+            if int(pss[pss_attr['File Num']]) == record:
+                _fleet.add(int(pss[pss_attr['Unit ID']]))
             else:
-                record = int(pss[self.attr['record_index']])
+                record = int(pss[pss_attr['File Num']])
                 if _fleet:
                     fleets.add(frozenset(_fleet))
                 _fleet = set()
-                _fleet.add(int(pss[self.attr['unit_id']]))
+                _fleet.add(int(pss[pss_attr['Unit ID']]))
     
         fleets = list(fleets)
         fleets_copy = fleets[:]
@@ -89,28 +76,28 @@ class PssData:
 
         self.fleets = fleets_copy 
     
-    def make_vp_gpd(self):
+    def make_vp_gpd(self, attr_key, allowed_range):
         '''  method to make geopandas dataframe for records obtained 
              from values from pss
         '''
         vp_lats = []
         vp_longs = []
-        vp_forces = []
+        vp_attributes = []
         record = 0
         _count = 0
         
         # loop over the records in pss_data and assert they are sequential
         for index, pss in enumerate(self.pss_data):
-            vp_lat = float(pss[self.attr['lat']])
-            vp_long = float(pss[self.attr['long']])
+            vp_lat = float(pss[pss_attr['Lat']])
+            vp_long = float(pss[pss_attr['Lon']])
             valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
                           LONG_MIN < vp_long and vp_long < LONG_MAX
             if not valid_coord:
                 logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
                              f'{(vp_lat, vp_long)}')
 
-            pss_force = float(pss[self.attr['force_avg']])
-            pss_record = int(pss[self.attr['record_index']])
+            vp_attr_value = float(pss[pss_attr[attr_key]])
+            pss_record = int(pss[pss_attr['File Num']])
             if pss_record < record:
                 logger.info(f'pss is not sequential at {pss_record}')
 
@@ -118,63 +105,62 @@ class PssData:
                 if valid_coord:
                     _vp_lat += vp_lat
                     _vp_long += vp_long
-                    _forces.append(pss_force)
+                    _vp_attribute.append(vp_attr_value)
                     _count += 1
                 else:
                     continue
 
             else:
                 if _count > 0:
-                    _average_force = average_with_outlier_removed(_forces, 
-                        ALLOWED_FORCE_RANGE)
-                    if _average_force:
+                    _average_attribute = average_with_outlier_removed(_vp_attribute, 
+                        allowed_range)
+                    if _average_attribute:
                         vp_lats.append(_vp_lat / _count)
                         vp_longs.append(_vp_long / _count)
-                        vp_forces.append(_average_force)
+                        vp_attributes.append(_average_attribute)
                     else:
-                        logger.info(f'record: {record}, invalid list of forces: {_forces}')
+                        logger.info(f'record: {record}, invalid list of forces: {_vp_attribute}')
 
                 record = pss_record
                 if valid_coord:
                     _vp_lat = vp_lat
                     _vp_long = vp_long
-                    _forces = [pss_force]
+                    _vp_attribute = [vp_attr_value]
                     _count = 1
                 else:
                     _count = 0
-                
 
         # and make the dataframe
         geometry = [Point(xy) for xy in zip(vp_longs, vp_lats)]
         self.vp_gpd = GeoDataFrame(crs={'init': f'epsg:{EPSG_WGS84}'}, geometry=geometry)
         self.vp_gpd = self.vp_gpd.to_crs(EPSG_31256_adapted)
-        self.vp_gpd['forces'] = vp_forces
-        self.add_force_level()
+        self.vp_gpd[attr_key] = vp_attributes
 
         logger.debug(f'vp_gpd is:{nl}{self.vp_gpd.head(10)}')
 
         return self.vp_gpd
 
-    def add_force_level(self):
+    def add_force_level(self, medium_force, high_force):
         def group_forces(forces):
             ''' helper function to group forces in LOW, MEDIUM , HIGH '''
             force_levels = []
             for force in forces:
-                if force > self.high_force:
+                if force > high_force:
                     force_levels.append('1HIGH')
 
-                elif force > self.medium_force:
+                elif force > medium_force:
                     force_levels.append('2MEDIUM')
 
-                elif force <= self.medium_force:
+                elif force <= medium_force:
                     force_levels.append('3LOW')
                     
                 else:
                     assert False, "this is an invalid option, check the code"
             return force_levels
 
-        self.vp_gpd['force_level'] = group_forces(self.vp_gpd['forces'].to_list())
+        self.vp_gpd['force_level'] = group_forces(self.vp_gpd['Force Avg'].to_list())
 
+        return self.vp_gpd
 
 def read_pss_file_csv(csv_file):
     try:
@@ -230,8 +216,8 @@ def pss_read_file(_date):
     return pss_data
 
 
-def obtain_vps_for_date_range(start_date, end_date, medium_force, high_force):
-    '''  reads pss data for a date range and extracts vps
+def get_vps_force_for_date_range(start_date, end_date, medium_force, high_force):
+    '''  reads pss data for a date range and extracts vps and force
          
          parameters:
          :start_date: start date (datetime date type)
@@ -248,7 +234,10 @@ def obtain_vps_for_date_range(start_date, end_date, medium_force, high_force):
         pss_data = pss_read_file(day)
         if pss_data == -1:
             continue
-        vp_day_gpd = PssData(pss_data, medium_force, high_force).make_vp_gpd()
+        vps = PssData(pss_data)
+        vps.make_vp_gpd('Force Avg', ALLOWED_FORCE_RANGE)
+        vp_day_gpd = vps.add_force_level(medium_force, high_force)
+
         vp_gpd = pd.concat([vp_gpd, vp_day_gpd], ignore_index=True)
 
         logger.debug(f'length: {len(vp_day_gpd)}')
@@ -256,3 +245,31 @@ def obtain_vps_for_date_range(start_date, end_date, medium_force, high_force):
     logger.info(f'total length: {len(vp_gpd)}')
 
     return vp_gpd
+
+def get_vps_viscosity_for_date_range(start_date, end_date):
+    '''  reads pss data for a date range and extracts vps and viscosity
+         
+         parameters:
+         :start_date: start date (datetime date type)
+         :end_date: end date (datetime date type)
+
+         return:
+         :vp_gpd: geopandas dataframe with vp attribute data in local coordinates
+    '''
+    vp_gpd = GeoDataFrame()
+
+    for day in daterange(start_date, end_date):
+        pss_data = pss_read_file(day)
+        if pss_data == -1:
+            continue
+        vps = PssData(pss_data)
+        vp_day_gpd = vps.make_vp_gpd('Viscosity Avg', 20)
+
+        vp_gpd = pd.concat([vp_gpd, vp_day_gpd], ignore_index=True)
+
+        logger.debug(f'length: {len(vp_day_gpd)}')
+
+    logger.info(f'total length: {len(vp_gpd)}')
+
+    return vp_gpd
+
