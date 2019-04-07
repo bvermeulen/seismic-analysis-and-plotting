@@ -61,7 +61,7 @@ class PssData:
             del self.pss_data[delete_list[i]]
 
         #sort pss data on File Num
-        self.pss_data = sorted(self.pss_data, key=lambda x: x[self.attr['record_index']])
+        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[self.attr['record_index']]))
 
     def determine_fleets(self):
         # determine fleets
@@ -96,62 +96,53 @@ class PssData:
         vp_lats = []
         vp_longs = []
         vp_forces = []
+        record = 0
+        _count = 0
         
-        # make a list of all unique records and sort 
-        list_record = set()
-        for pss in self.pss_data:
-            list_record.add(pss[self.attr['record_index']])
+        # loop over the records in pss_data and assert they are sequential
+        for index, pss in enumerate(self.pss_data):
+            vp_lat = float(pss[self.attr['lat']])
+            vp_long = float(pss[self.attr['long']])
+            valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
+                          LONG_MIN < vp_long and vp_long < LONG_MAX
+            if not valid_coord:
+                logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
+                             f'{(vp_lat, vp_long)}')
 
-        list_record = list(list_record)
-        list_record.sort()
-        _index = 0
+            pss_force = float(pss[self.attr['force_avg']])
+            pss_record = int(pss[self.attr['record_index']])
+            if pss_record < record:
+                logger.info(f'pss is not sequential at {pss_record}')
 
-        # and loop over the records 
-        for record in list_record:
-            _vp_lat = 0
-            _vp_long = 0
-            _forces = []
-            _count = 0
-
-            # loop over a narrow range of pss_data records starting at where
-            # last loop stopped
-            for index, pss in enumerate(self.pss_data[_index:]):
-                if record == pss[self.attr['record_index']]:
-                    vp_lat = float(pss[self.attr['lat']])
-                    vp_long = float(pss[self.attr['long']])
-                    valid_coord = vp_lat > LAT_MIN and vp_lat < LAT_MAX and \
-                                  vp_long > LONG_MIN and vp_long < LONG_MAX
-                    if valid_coord:
-                        _vp_lat += float(pss[self.attr['lat']])
-                        _vp_long += float(pss[self.attr['long']])
-                        _forces.append(float(pss[self.attr['force_avg']]))
-                        _count += 1
-                    else:
-                        logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
-                                    f'{(vp_lat, vp_long)}')
-
-                # as pss_data record numbers are sequentially stop the loop  
-                # as soon as this is greater than the currect record number
-                # and set a new index start value
-                elif pss[self.attr['record_index']] > record:
-                    _index += index
-                    break  
-
-                # assumption is that pss_data is sequentially ordered
+            if record == pss_record:
+                if valid_coord:
+                    _vp_lat += vp_lat
+                    _vp_long += vp_long
+                    _forces.append(pss_force)
+                    _count += 1
                 else:
-                    assert False, f'pss_data is not sequential: {record}'
+                    continue
 
-            if _count > 0:
-                _average_force = average_with_outlier_removed(_forces, 
-                                    ALLOWED_FORCE_RANGE)
-                if _average_force:
-                    vp_lats.append(_vp_lat / _count)
-                    vp_longs.append(_vp_long / _count)
-                    vp_forces.append(_average_force)
-                else:
-                    logger.info(f'record: {record}, invalid list of forces: {_forces}')
             else:
-                pass
+                if _count > 0:
+                    _average_force = average_with_outlier_removed(_forces, 
+                        ALLOWED_FORCE_RANGE)
+                    if _average_force:
+                        vp_lats.append(_vp_lat / _count)
+                        vp_longs.append(_vp_long / _count)
+                        vp_forces.append(_average_force)
+                    else:
+                        logger.info(f'record: {record}, invalid list of forces: {_forces}')
+
+                record = pss_record
+                if valid_coord:
+                    _vp_lat = vp_lat
+                    _vp_long = vp_long
+                    _forces = [pss_force]
+                    _count = 1
+                else:
+                    _count = 0
+                
 
         # and make the dataframe
         geometry = [Point(xy) for xy in zip(vp_longs, vp_lats)]

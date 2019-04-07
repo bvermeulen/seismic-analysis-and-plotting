@@ -50,8 +50,9 @@ class PssData:
 
         self.pss_df = self.pss_df.drop(delete_list).reset_index()
 
-        # set the proper types
+        # set the proper types and sort
         self.pss_df['File Num'] = self.pss_df['File Num'].astype('int64')
+        self.pss_df = self.pss_df.sort_values(by='File Num')
 
     def get_pss_df(self):
         return self.pss_df
@@ -89,47 +90,39 @@ class PssData:
         vp_lats = []
         vp_longs = []
         vp_forces = []
+        record = None
+        _count = 0
         
-        # make a list of all records
-        list_record = set()
-        for _, pss_row in self.pss_df.iterrows():
-            list_record.add(pss_row['File Num'])
+        for index, pss_row in self.pss_df.iterrows():
+            vp_lat = pss_row['Lat']
+            vp_long = pss_row['Lon']
+            valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
+                          LONG_MIN < vp_long and vp_long < LONG_MAX
+            if not valid_coord:
+                continue
 
-        list_record = list(list_record)
+            if pss_row['File Num'] == record:
+                _vp_lat += vp_lat
+                _vp_long += vp_long
+                _forces.append(pss_row['Force Avg'])
+                _count += 1                             
 
-        # and loop over the records 
-        for record in list_record:
-            _vp_lat = 0
-            _vp_long = 0
-            _forces = []
-            _count = 0
-            _pss_sub_df = self.pss_df.loc[self.pss_df['File Num'] == record, 
-                                      {'Lat', 'Lon', 'Force Avg'}]
-            for _, pss_row in _pss_sub_df.iterrows():
-                vp_lat = pss_row['Lat']
-                vp_long = pss_row['Lon']
-                valid_coord = vp_lat > LAT_MIN and vp_lat < LAT_MAX and \
-                              vp_long > LONG_MIN and vp_long < LONG_MAX
-                if valid_coord:
-                    _vp_lat += pss_row['Lat']
-                    _vp_long += pss_row['Lon']
-                    _forces.append(pss_row['Force Avg'])
-                    _count += 1
-                else:
-                    logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
-                                 f'{(vp_lat, vp_long)}')
-                                    
-            if _count > 0:
-                _average_force = average_with_outlier_removed(_forces, 
-                                    ALLOWED_FORCE_RANGE)
-                if _average_force:
-                    vp_lats.append(_vp_lat / _count)
-                    vp_longs.append(_vp_long / _count)
-                    vp_forces.append(_average_force)
-                else:
-                    logger.info(f'record: {record}, invalid list of forces: {_forces}')
             else:
-                pass
+                if _count > 0:
+                    _average_force = average_with_outlier_removed(_forces, 
+                        ALLOWED_FORCE_RANGE)
+                    if _average_force:
+                        vp_lats.append(_vp_lat / _count)
+                        vp_longs.append(_vp_long / _count)
+                        vp_forces.append(_average_force)
+                    else:
+                        logger.info(f'record: {record}, invalid list of forces: {_forces}')
+
+                record = pss_row['File Num']
+                _vp_lat = vp_lat
+                _vp_long = vp_long
+                _forces = [pss_row['Force Avg']]
+                _count = 1
 
         # and make the dataframe
         geometry = [Point(xy) for xy in zip(vp_longs, vp_lats)]
