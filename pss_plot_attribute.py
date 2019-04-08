@@ -1,28 +1,29 @@
 import set_gdal_pyproj_env_vars_and_logger
 import sys
+import numpy as np
 from datetime import timedelta
 import matplotlib.pyplot as plt
 from pyproj import Proj, transform
 from geopandas import GeoSeries
 from shapely.geometry import Polygon
 
-from pss_io import get_vps_force_for_date_range
-from geo_io import (GeoData, get_date, offset_transformation, 
+from pss_attr import pss_attr
+from pss_io import get_vps_attribute_for_date_range
+from geo_io import (GeoData, get_date_range, offset_transformation, 
                     add_basemap_local, add_basemap_osm,
                     EPSG_31256_adapted, EPSG_OSM)
 from Utils.plogger import Logger, timed
 
 
-MARKERSIZE = 0.02
+MARKERSIZE = 0.2
 EDGECOLOR = 'black'
 maptypes = ['local', 'osm']
+cmap = 'coolwarm'
 
 proj_map = Proj(init=f'epsg:{EPSG_OSM}')
 proj_local = Proj(EPSG_31256_adapted)
 
 ZOOM = 13
-HIGH_FORCE=60
-MEDIUM_FORCE=35
 OFFSET_INLINE = 6000.0
 OFFSET_CROSSLINE = 6000.0
 maptitle = ('VPs 3D Schonkirchen', 18)
@@ -33,22 +34,15 @@ class PlotMap:
     '''  class contains method to plot the pss data, swath boundary, map and 
          active patch
     '''
-    def __init__(self, start_date, maptype=None, swaths_selected=[]):
-        self.date = start_date
+    def __init__(self, maptype=None, swaths_selected=[]):
         self.maptype = maptype
         self.swaths_selected = swaths_selected
-        self.pss_dataframes = [None, None, None]
-        self.init_pss_dataframes()
 
-        self.fig, self.ax = self.setup_map(figsize=(5, 5))
+        self.fig, self.ax = self.setup_map(figsize=(6, 5))
         self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
 
         connect = self.fig.canvas.mpl_connect
         connect('button_press_event', self.on_click)
-        connect('key_press_event', self.on_key)
-
-        self.date_text_x, self.date_text_y = 0.80, 0.95
-        self.plot_pss_data(1)
 
     def setup_map(self, figsize):
         ''' setup the map and background '''
@@ -79,56 +73,49 @@ class PlotMap:
 
         return fig, ax
 
-    # @timed(logger)  #pylint: disable=no-value-for-parameter
-    def init_pss_dataframes(self):
-        dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
-        for i, _date in enumerate(dates):
-            _pss_gpd = get_vps_force_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
-            _pss_gpd = self.convert_to_map(_pss_gpd)
-            self.pss_dataframes[i] = _pss_gpd
-
     # @timed(logger) #pylint: disable=no-value-for-parameter
-    def update_right_pss_dataframes(self):
-        self.pss_dataframes[0] = self.pss_dataframes[1]
-        self.pss_dataframes[1] = self.pss_dataframes[2]
-        _date = self.date+timedelta(1)
-        _pss_gpd = get_vps_force_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
-        _pss_gpd = self.convert_to_map(_pss_gpd)
-        self.pss_dataframes[2] = _pss_gpd
+    def plot_attribute_data(self, attribute, start_date, end_date):
+        '''  plot vp attribute data '''
 
-    # @timed(logger) #pylint: disable=no-value-for-parameter
-    def update_left_pss_dataframes(self):
-        self.pss_dataframes[2] = self.pss_dataframes[1]
-        self.pss_dataframes[1] = self.pss_dataframes[0]
-        _date = self.date-timedelta(1)
-        _pss_gpd = get_vps_force_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
-        _pss_gpd = self.convert_to_map(_pss_gpd)
-        self.pss_dataframes[0] = _pss_gpd
+        vib_attribute_gpd = get_vps_attribute_for_date_range(attribute, start_date, end_date)
+        vib_attribute_gpd = self.convert_to_map(vib_attribute_gpd)
 
-    # @timed(logger) #pylint: disable=no-value-for-parameter
-    def plot_pss_data(self, index):
-        '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
-
-        vib_pss_gpd = self.pss_dataframes[index]
-
-        self.date_gid = plt.text(self.date_text_x, self.date_text_y, self.date.strftime("%d %m %y"),
-                                 transform=self.ax.transAxes)
-        if vib_pss_gpd.empty:
+        if vib_attribute_gpd.empty:
             self.blit()
             return False
 
-        # plot the VP grouped by force_level
-        force_attrs = { '1HIGH': ['red', f'high > {HIGH_FORCE}'],
-                        '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
-                        '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
+        # determine minumum and maximum
+        if pss_attr[attribute]['min'] != None:
+            minimum = pss_attr[attribute]['min']
+        else:
+            minimum = vib_attribute_gpd[attribute].min()
 
-        for force_level,vib_pss in vib_pss_gpd.groupby('force_level'):
-            vib_pss.plot(ax=self.ax,
-                         color=force_attrs[force_level][0],
-                         markersize=MARKERSIZE, gid='pss')
+        if pss_attr[attribute]['max'] != None:
+            maximum = pss_attr[attribute]['max']
+        else:    
+            maximum = vib_attribute_gpd[attribute].max()
+        logger.info(f'minimum: {minimum}, maximum: {maximum}')
+
+        vib_attribute_gpd.plot(ax=self.ax, 
+                               column=attribute,
+                               cmap=cmap,
+                               vmin=minimum, vmax=maximum,
+                               markersize=MARKERSIZE, gid='pss')
+
+        self.add_colorbar(cmap, minimum, maximum)
+        self.ax.set_title(' '.join(['Schonkirchen 3D:', pss_attr[attribute]['title']]))
 
         self.blit()
-        return True
+
+    def add_colorbar(self, cmap, minimum, maximum):
+        ''' plot the colorbar
+            https://stackoverflow.com/questions/36008648/colorbar-on-geopandas
+        '''
+        cax = self.fig.add_axes([0.9, 0.1, 0.03, 0.8])
+        sm = plt.cm.ScalarMappable(cmap=cmap, 
+                                   norm=plt.Normalize(vmin=minimum, vmax=maximum))
+        sm._A = []
+        self.fig.colorbar(sm, cax=cax)
 
     def on_click(self, event):
         # If we're using a tool on the toolbar, don't add/draw a point...
@@ -140,23 +127,6 @@ class PlotMap:
         elif event.button == 3:
             self.delete_from_map('patch')
             self.blit()
-
-    @timed(logger) #pylint: disable=no-value-for-parameter
-    def on_key(self, event):
-        if event.key not in ['right', 'left']:
-            return
-
-        logger.info(f'|------------------------| {event.key} |------------------------|')
-        self.delete_from_map('pss')
-        if event.key == 'right':
-            self.date += timedelta(1)
-            self.plot_pss_data(2)
-            self.update_right_pss_dataframes()
-
-        elif event.key == 'left':
-            self.date -= timedelta(1)
-            self.plot_pss_data(0)
-            self.update_left_pss_dataframes()
 
     def add_patch(self, x_map, y_map):
         # convert map point to local coordinate
@@ -186,12 +156,6 @@ class PlotMap:
             if plot_object.get_gid() == gid:
                 plot_object.remove()
 
-        if gid == 'pss':
-            try:
-                self.date_gid.remove()
-            except ValueError:
-                pass
-
     def convert_to_map(self, df):
         if self.maptype == maptypes[1] and not df.empty:
             df = df.to_crs(epsg=EPSG_OSM)
@@ -209,22 +173,28 @@ class PlotMap:
         plt.show()
 
 
-def main(maptype):
-    start_date = get_date()
-    PlotMap(start_date, maptype=maptype).show()
+def main(maptype, attribute):
+    start_date, end_date = get_date_range()
+    plotmap = PlotMap(maptype=maptype)
+    plotmap.plot_attribute_data(attribute, start_date, end_date)
+    plotmap.show()
 
 if __name__ == "__main__":
     '''  Interactive display of production. Background maps can be 
          selected by giving an argument.
          :arguments:
-            local: local map (jpg) - very slow
-            OSM: OpenStreetMap - slow
-            No arguments or anything else: no background map
+            first argument:
+                local: local map (jpg) - very slow
+                OSM: OpenStreetMap - slow
+                none: no background map
+            second argument:
+                pss attribute as given in pss_attr.py (i.e. 'Force Avg' or 'Altitude')
+                if none then 'Altitude' is taken
     '''
 
-    logger.info(f'{nl}==============================================='\
-                f'{nl}===>   Running: pss_plot_day (optimized)   <==='\
-                f'{nl}===============================================')
+    logger.info(f'{nl}=========================================='\
+                f'{nl}===>   Running: pss_plot_attribute    <==='\
+                f'{nl}==========================================')
 
     try:
         maptype = sys.argv[1].lower()
@@ -233,6 +203,14 @@ if __name__ == "__main__":
     except IndexError:
         maptype = None
 
-    logger.info(f'maptype: {maptype}')
-    main(maptype)
+    try:
+        attribute = sys.argv[2]
+        if attribute not in pss_attr:
+            print('provide valid attribute as second argument')
+            sys.exit()
+    except IndexError:
+        attribute = 'Altitude'
+
+    logger.info(f'maptype: {maptype}, attribute: {attribute}')
+    main(maptype, attribute)
     

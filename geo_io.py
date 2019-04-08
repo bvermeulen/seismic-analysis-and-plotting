@@ -27,12 +27,7 @@ EPSG_WGS84 = 4326
 
 ASK_DATE = 'date (YYMMDD) [q - quit]: '
 
-# start logger
-logformat = '%(asctime)s - %(levelname)s - %(message)s'
-Logger.set_logger('autoseis.log', logformat, 'INFO')
 logger = Logger.getlogger()
-nl = '\n'
-
 
 def get_date():
     _date = input(ASK_DATE)

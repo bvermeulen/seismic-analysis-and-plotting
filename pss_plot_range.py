@@ -1,10 +1,10 @@
-import set_gdal_pyproj_environment_variables
+import set_gdal_pyproj_env_vars_and_logger
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from datetime import date, timedelta
 
-from pss_io import obtain_vps_for_date_range
+from pss_io import get_vps_force_for_date_range
 from geo_io import (GeoData, get_date, get_date_range, daterange,
                     add_basemap_local, add_basemap_osm)
 from Utils.plogger import Logger, timed
@@ -65,7 +65,7 @@ class PlotMap:
         '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
         logger.info(f'---------{to_date.strftime("%d-%B-%y")}-----------------------------')
 
-        vib_pss_gpd = obtain_vps_for_date_range(from_date, to_date, MEDIUM_FORCE, HIGH_FORCE)
+        vib_pss_gpd = get_vps_force_for_date_range(from_date, to_date, MEDIUM_FORCE, HIGH_FORCE)
 
         # plot the VP grouped by force_level
 

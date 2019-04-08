@@ -1,5 +1,5 @@
-import csv
 import glob
+import csv
 import pandas as pd
 import numpy as np
 from geopandas import GeoDataFrame
@@ -17,14 +17,13 @@ LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
 LONG_MAX = 18
-ALLOWED_FORCE_RANGE = 10
 
 logger = Logger.getlogger()
 nl = '\n'
 
 
 class PssData:
-    '''  method for handling PSS data '''
+    '''  methods for handling PSS data '''
 
     def __init__(self, pss_input_data):
         self.pss_data = pss_input_data
@@ -32,14 +31,14 @@ class PssData:
         # clean PSS data
         delete_list = []
         for i, pss in enumerate(self.pss_data):
-            if pss[pss_attr['Void']] == 'Void':
+            if pss[pss_attr['Void']['col']] == 'Void':
                 delete_list.append(i)
-            elif not pss[pss_attr['File Num']]:
+            elif not pss[pss_attr['File Num']['col']]:
                 delete_list.append(i)
-            elif int(pss[pss_attr['Force Avg']]) == 0:
+            elif int(pss[pss_attr['Force Avg']['col']]) == 0:
                 delete_list.append(i)
             try:
-                if pss[pss_attr['Comment']][-10:] == 'been shot!': 
+                if pss[pss_attr['Comment']['col']][-10:] == 'been shot!': 
                     delete_list.append(i)
             except:
                 pass
@@ -48,7 +47,7 @@ class PssData:
             del self.pss_data[delete_list[i]]
 
         #sort pss data on File Num
-        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[pss_attr['File Num']]))
+        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[pss_attr['File Num']['col']]))
 
     def determine_fleets(self):
         # determine fleets
@@ -56,14 +55,14 @@ class PssData:
         record = 0
         _fleet = set()
         for pss in self.pss_data:
-            if int(pss[pss_attr['File Num']]) == record:
-                _fleet.add(int(pss[pss_attr['Unit ID']]))
+            if int(pss[pss_attr['File Num']['col']]) == record:
+                _fleet.add(int(pss[pss_attr['Unit ID']['col']]))
             else:
-                record = int(pss[pss_attr['File Num']])
+                record = int(pss[pss_attr['File Num']['col']])
                 if _fleet:
                     fleets.add(frozenset(_fleet))
                 _fleet = set()
-                _fleet.add(int(pss[pss_attr['Unit ID']]))
+                _fleet.add(int(pss[pss_attr['Unit ID']['col']]))
     
         fleets = list(fleets)
         fleets_copy = fleets[:]
@@ -76,7 +75,7 @@ class PssData:
 
         self.fleets = fleets_copy 
     
-    def make_vp_gpd(self, attr_key, allowed_range):
+    def make_vp_gpd(self, attr_key):
         '''  method to make geopandas dataframe for records obtained 
              from values from pss
         '''
@@ -88,16 +87,16 @@ class PssData:
         
         # loop over the records in pss_data and assert they are sequential
         for index, pss in enumerate(self.pss_data):
-            vp_lat = float(pss[pss_attr['Lat']])
-            vp_long = float(pss[pss_attr['Lon']])
+            vp_lat = float(pss[pss_attr['Lat']['col']])
+            vp_long = float(pss[pss_attr['Lon']['col']])
             valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
                           LONG_MIN < vp_long and vp_long < LONG_MAX
             if not valid_coord:
                 logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
                              f'{(vp_lat, vp_long)}')
 
-            vp_attr_value = float(pss[pss_attr[attr_key]])
-            pss_record = int(pss[pss_attr['File Num']])
+            vp_attr_value = float(pss[pss_attr[attr_key]['col']])
+            pss_record = int(pss[pss_attr['File Num']['col']])
             if pss_record < record:
                 logger.info(f'pss is not sequential at {pss_record}')
 
@@ -113,13 +112,13 @@ class PssData:
             else:
                 if _count > 0:
                     _average_attribute = average_with_outlier_removed(_vp_attribute, 
-                        allowed_range)
-                    if _average_attribute:
+                        pss_attr[attr_key]['range'])
+                    if _average_attribute != None:
                         vp_lats.append(_vp_lat / _count)
                         vp_longs.append(_vp_long / _count)
                         vp_attributes.append(_average_attribute)
                     else:
-                        logger.info(f'record: {record}, invalid list of forces: {_vp_attribute}')
+                        logger.debug(f'record: {record}, invalid list: {_vp_attribute}')
 
                 record = pss_record
                 if valid_coord:
@@ -211,7 +210,7 @@ def pss_read_file(_date):
         pss_data = -1
 
     if pss_data == -1:
-        logger.info(f'incorrect file name')
+        logger.debug(f'incorrect file name')
 
     return pss_data
 
@@ -235,7 +234,7 @@ def get_vps_force_for_date_range(start_date, end_date, medium_force, high_force)
         if pss_data == -1:
             continue
         vps = PssData(pss_data)
-        vps.make_vp_gpd('Force Avg', ALLOWED_FORCE_RANGE)
+        vps.make_vp_gpd('Force Avg')
         vp_day_gpd = vps.add_force_level(medium_force, high_force)
 
         vp_gpd = pd.concat([vp_gpd, vp_day_gpd], ignore_index=True)
@@ -246,7 +245,7 @@ def get_vps_force_for_date_range(start_date, end_date, medium_force, high_force)
 
     return vp_gpd
 
-def get_vps_viscosity_for_date_range(start_date, end_date):
+def get_vps_attribute_for_date_range(attribute, start_date, end_date):
     '''  reads pss data for a date range and extracts vps and viscosity
          
          parameters:
@@ -263,7 +262,7 @@ def get_vps_viscosity_for_date_range(start_date, end_date):
         if pss_data == -1:
             continue
         vps = PssData(pss_data)
-        vp_day_gpd = vps.make_vp_gpd('Viscosity Avg', 20)
+        vp_day_gpd = vps.make_vp_gpd(attribute)
 
         vp_gpd = pd.concat([vp_gpd, vp_day_gpd], ignore_index=True)
 
