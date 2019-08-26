@@ -1,13 +1,14 @@
-import set_gdal_pyproj_env_vars_and_logger
 import sys
 from datetime import timedelta
 import matplotlib.pyplot as plt
-from pyproj import Proj, transform
-from geopandas import GeoSeries
-from shapely.geometry import Polygon
+
+import set_gdal_pyproj_env_vars_and_logger  #pylint: disable=W0611
+from geopandas import GeoSeries  #pylint: disable=C0411
+from shapely.geometry import Polygon  #pylint: disable=C0411
+from pyproj import Proj, transform  #pylint: disable=C0411
 
 from pss_io import get_vps_force_for_date_range
-from geo_io import (GeoData, get_date, offset_transformation, 
+from geo_io import (GeoData, get_date, offset_transformation,
                     add_basemap_local, add_basemap_osm,
                     EPSG_31256_adapted, EPSG_OSM)
 from Utils.plogger import Logger, timed
@@ -21,8 +22,8 @@ proj_map = Proj(init=f'epsg:{EPSG_OSM}')
 proj_local = Proj(EPSG_31256_adapted)
 
 ZOOM = 13
-HIGH_FORCE=60
-MEDIUM_FORCE=35
+HIGH_FORCE = 60
+MEDIUM_FORCE = 35
 OFFSET_INLINE = 6000.0
 OFFSET_CROSSLINE = 6000.0
 maptitle = ('VPs 3D Schonkirchen', 18)
@@ -30,7 +31,7 @@ logger = Logger.getlogger()
 nl = '\n'
 
 class PlotMap:
-    '''  class contains method to plot the pss data, swath boundary, map and 
+    '''  class contains method to plot the pss data, swath boundary, map and
          active patch
     '''
     def __init__(self, start_date, maptype=None, swaths_selected=[]):
@@ -55,9 +56,10 @@ class PlotMap:
         fig, ax = plt.subplots(figsize=figsize)
 
         # plot the swath boundary
-        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=self.swaths_selected, 
-                                                                      swaths_only=True,
-                                                                      source_boundary=True,)
+        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(
+            swaths_selected=self.swaths_selected,
+            swaths_only=True,
+            source_boundary=True,)
         swaths_bnd_gpd = self.convert_to_map(swaths_bnd_gpd)
         swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
@@ -83,7 +85,8 @@ class PlotMap:
     def init_pss_dataframes(self):
         dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
         for i, _date in enumerate(dates):
-            _pss_gpd = get_vps_force_for_date_range(_date, _date, MEDIUM_FORCE, HIGH_FORCE)
+            _pss_gpd = get_vps_force_for_date_range(_date, _date,
+                                                    MEDIUM_FORCE, HIGH_FORCE)
             _pss_gpd = self.convert_to_map(_pss_gpd)
             self.pss_dataframes[i] = _pss_gpd
 
@@ -111,18 +114,19 @@ class PlotMap:
 
         vib_pss_gpd = self.pss_dataframes[index]
 
-        self.date_gid = plt.text(self.date_text_x, self.date_text_y, self.date.strftime("%d %m %y"),
+        self.date_gid = plt.text(self.date_text_x, self.date_text_y,
+                                 self.date.strftime("%d %m %y"),
                                  transform=self.ax.transAxes)
         if vib_pss_gpd.empty:
             self.blit()
             return False
 
         # plot the VP grouped by force_level
-        force_attrs = { '1HIGH': ['red', f'high > {HIGH_FORCE}'],
-                        '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
-                        '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
+        force_attrs = {'1HIGH': ['red', f'high > {HIGH_FORCE}'],
+                       '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
+                       '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
 
-        for force_level,vib_pss in vib_pss_gpd.groupby('force_level'):
+        for force_level, vib_pss in vib_pss_gpd.groupby('force_level'):
             vib_pss.plot(ax=self.ax,
                          color=force_attrs[force_level][0],
                          markersize=MARKERSIZE, gid='pss')
@@ -132,7 +136,7 @@ class PlotMap:
 
     def on_click(self, event):
         # If we're using a tool on the toolbar, don't add/draw a point...
-        if self.fig.canvas.toolbar._active is not None:
+        if self.fig.canvas.toolbar._active is not None:  #pylint: disable=W0212
             return
 
         if event.button == 1:
@@ -164,18 +168,18 @@ class PlotMap:
             x, y = transform(proj_map, proj_local, x_map, y_map)
         else:
             x, y = x_map, y_map
-        
-        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+
+        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0],
                     y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
-        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
                     y + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
                     y + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0],
                     y + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
- 
+
         # set corner points of patch and convert back to map coordinates
-        patch_polygon = Polygon([c1, c2, c3, c4, c1]) 
+        patch_polygon = Polygon([c1, c2, c3, c4, c1])
         patch_gpd = GeoSeries(patch_polygon)
         patch_gpd.crs = EPSG_31256_adapted
         patch_gpd = self.convert_to_map(patch_gpd)
@@ -214,7 +218,7 @@ def main(maptype):
     PlotMap(start_date, maptype=maptype).show()
 
 if __name__ == "__main__":
-    '''  Interactive display of production. Background maps can be 
+    '''  Interactive display of production. Background maps can be
          selected by giving an argument.
          :arguments:
             local: local map (jpg) - very slow
@@ -235,4 +239,3 @@ if __name__ == "__main__":
 
     logger.info(f'maptype: {maptype}')
     main(maptype)
-    
