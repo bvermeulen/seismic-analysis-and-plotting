@@ -1,12 +1,11 @@
-import set_gdal_pyproj_env_vars_and_logger
-import numpy as np
+from datetime import timedelta
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from datetime import date, timedelta
 
+import set_gdal_pyproj_env_vars_and_logger  #pylint: disable=W0611
 from pss_io import get_vps_force_for_date_range
 from geo_io import (GeoData, get_date, get_date_range, daterange,
-                    add_basemap_local, add_basemap_osm)
+                    add_basemap_local)
 from Utils.plogger import Logger, timed
 
 
@@ -16,14 +15,14 @@ EDGECOLOR = 'black'
 MARKERSIZE = 0.02
 MARKERSCALE = 5.0
 FIGSIZE = 8
-HIGH_FORCE=60
-MEDIUM_FORCE=35
+HIGH_FORCE = 60
+MEDIUM_FORCE = 35
 maptitle = ('VPs 3D Schonkirchen', 12)
 logger = Logger.getlogger()
 nl = '\n'
 
 class PlotMap:
-    '''  class contains method to plot the pss data, swath boundary, map and 
+    '''  class contains method to plot the pss data, swath boundary, map and
          active patch
     '''
     def __init__(self, initial_date):
@@ -33,9 +32,9 @@ class PlotMap:
         self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
 
         self.force_levels = ['3LOW', '2MEDIUM', '1HIGH']
-        self.force_attrs = { '1HIGH': ['red', f'high > {HIGH_FORCE}'],
-                             '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
-                             '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
+        self.force_attrs = {'1HIGH': ['red', f'high > {HIGH_FORCE}'],
+                            '2MEDIUM': ['cyan', f'medium > {MEDIUM_FORCE}'],
+                            '3LOW': ['yellow', f'low <= {MEDIUM_FORCE}'],}
 
 
     def setup_map(self, figsize):
@@ -43,9 +42,10 @@ class PlotMap:
         fig, ax = plt.subplots(figsize=figsize)
 
         # plot the swath boundary
-        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=[0], 
-                                                                      swaths_only=True,
-                                                                      source_boundary=False,)
+        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(
+            swaths_selected=[0],
+            swaths_only=True,
+            source_boundary=False,)
         swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
         # obtain the extent of the data based on swaths_bnd_gdf
@@ -63,12 +63,12 @@ class PlotMap:
     @timed(logger)  #pylint: disable=no-value-for-parameter
     def plot_pss_data(self, from_date, to_date):
         '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
-        logger.info(f'---------{to_date.strftime("%d-%B-%y")}-----------------------------')
+        logger.info(f'---------{to_date.strftime("%d-%B-%y")}---------------------------')
 
-        vib_pss_gpd = get_vps_force_for_date_range(from_date, to_date, MEDIUM_FORCE, HIGH_FORCE)
+        vib_pss_gpd = get_vps_force_for_date_range(
+            from_date, to_date, MEDIUM_FORCE, HIGH_FORCE)
 
         # plot the VP grouped by force_level
-
         # for force_level, vib_pss in vib_pss_gpd.groupby('force_level'):
         #     print(force_level)
         #     vib_pss.plot(ax=self.ax,
@@ -80,8 +80,8 @@ class PlotMap:
                 vib_pss = vib_pss_gpd[vib_pss_gpd['force_level'] == force_level]
             except (TypeError, KeyError):
                 continue
-            
-            vib_pss.plot(ax=self.ax, 
+
+            vib_pss.plot(ax=self.ax,
                          color=self.force_attrs[force_level][0],
                          markersize=MARKERSIZE, gid='pss')
 
@@ -90,11 +90,12 @@ class PlotMap:
     def add_legend(self):
         force_legend = []
         for force_level in self.force_levels:
-            force_legend.append(Line2D([], [], marker='o', linestyle='',
-                                       color='white',
-                                       markerfacecolor=self.force_attrs[force_level][0], 
-                                       label=self.force_attrs[force_level][1],
-                                       markersize=MARKERSCALE))
+            force_legend.append(Line2D(
+                [], [], marker='o', linestyle='',
+                color='white',
+                markerfacecolor=self.force_attrs[force_level][0],
+                label=self.force_attrs[force_level][1],
+                markersize=MARKERSCALE))
 
         self.legend_gid = self.ax.legend(handles=force_legend)
 
@@ -104,17 +105,18 @@ class PlotMap:
 
         if self.initial_date:
             plotfile = PREFIX + ''.join([self.initial_date.strftime("%y%m%d"),
-                                        '_', _date.strftime("%y%m%d"), '.png'])
+                                         '_', _date.strftime("%y%m%d"), '.png'])
         else:
             plotfile = PREFIX + ''.join([_date.strftime("%y%m%d"), '.png'])
 
-        self.ax.set_title(''.join([maptitle[0], ' ', _date.strftime("%d-%b-%y")]), 
+        self.ax.set_title(''.join([maptitle[0], ' ', _date.strftime("%d-%b-%y")]),
                           fontsize=maptitle[1])
         self.add_legend()
         plt.savefig(plotfile)
 
-        # in case self.initial date is None then delete pss data from map to show single days
-        if self.initial_date == None:
+        # in case self.initial date is None then delete pss data from map
+        # to show single days
+        if self.initial_date is None:
             self.delete_from_map('pss')
         else:
             pass # keep the points for cumulated plot
@@ -134,6 +136,7 @@ def main():
 
     if input('Single days [y/n]? ')[0] in ['y', 'Y']:
         initial_date = None
+
     else:
         print('What is the initial date? ', end='')
         initial_date = get_date()
@@ -141,7 +144,7 @@ def main():
 
     plt_map = PlotMap(initial_date)
 
-    if initial_date != None:
+    if initial_date is not None:
         plt_map.plot_pss_data(initial_date, start_date)
         print(f'plotted map for {start_date.strftime("%d-%B-%y")}')
         start_date += timedelta(1)
@@ -158,4 +161,3 @@ if __name__ == "__main__":
                 f'{nl}==========================================')
 
     main()
-    

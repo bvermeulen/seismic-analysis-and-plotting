@@ -1,14 +1,12 @@
 import glob
 import csv
 import pandas as pd
-import numpy as np
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
-from datetime import timedelta
 
 from geo_io import daterange, EPSG_31256_adapted, EPSG_WGS84
 from pss_attr import pss_attr
-from Utils.plogger import Logger, timed
+from Utils.plogger import Logger
 from Utils.utils import average_with_outlier_removed
 
 
@@ -38,16 +36,17 @@ class PssData:
             elif int(pss[pss_attr['Force Avg']['col']]) == 0:
                 delete_list.append(i)
             try:
-                if pss[pss_attr['Comment']['col']][-10:] == 'been shot!': 
+                if pss[pss_attr['Comment']['col']][-10:] == 'been shot!':
                     delete_list.append(i)
-            except:
+            except:  #pylint: disable=bare-except
                 pass
-                
+
         for i in range(len(delete_list)-1, -1, -1):
             del self.pss_data[delete_list[i]]
 
         #sort pss data on File Num
-        self.pss_data = sorted(self.pss_data, key=lambda x: int(x[pss_attr['File Num']['col']]))
+        self.pss_data = sorted(
+            self.pss_data, key=lambda x: int(x[pss_attr['File Num']['col']]))
 
     def determine_fleets(self):
         # determine fleets
@@ -63,20 +62,20 @@ class PssData:
                     fleets.add(frozenset(_fleet))
                 _fleet = set()
                 _fleet.add(int(pss[pss_attr['Unit ID']['col']]))
-    
+
         fleets = list(fleets)
         fleets_copy = fleets[:]
 
-        for i in range(len(fleets)):
-            for j in range(0, len(fleets)):
+        for i in range(len(fleets)):  #pylint: disable=consider-using-enumerate
+            for j in range(0, len(fleets)):  #pylint: disable=consider-using-enumerate
                 if fleets[j] > fleets[i]:
                     fleets_copy.remove(fleets[i])
                     break
 
-        self.fleets = fleets_copy 
-    
+        self.fleets = fleets_copy
+
     def make_vp_gpd(self, attr_key):
-        '''  method to make geopandas dataframe for records obtained 
+        '''  method to make geopandas dataframe for records obtained
              from values from pss
         '''
         vp_lats = []
@@ -84,15 +83,16 @@ class PssData:
         vp_attributes = []
         record = 0
         _count = 0
-        
+
         # loop over the records in pss_data and assert they are sequential
-        for index, pss in enumerate(self.pss_data):
+        for _, pss in enumerate(self.pss_data):
             vp_lat = float(pss[pss_attr['Lat']['col']])
             vp_long = float(pss[pss_attr['Lon']['col']])
             valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
                           LONG_MIN < vp_long and vp_long < LONG_MAX
             if not valid_coord:
-                logger.debug(f'invalid coord: record: {record}: {(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
+                logger.debug(f'invalid coord: record: {record}: '
+                             f'{(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
                              f'{(vp_lat, vp_long)}')
 
             vp_attr_value = float(pss[pss_attr[attr_key]['col']])
@@ -111,9 +111,9 @@ class PssData:
 
             else:
                 if _count > 0:
-                    _average_attribute = average_with_outlier_removed(_vp_attribute, 
-                        pss_attr[attr_key]['range'])
-                    if _average_attribute != None:
+                    _average_attribute = average_with_outlier_removed(
+                        _vp_attribute, pss_attr[attr_key]['range'])
+                    if _average_attribute is not None:
                         vp_lats.append(_vp_lat / _count)
                         vp_longs.append(_vp_long / _count)
                         vp_attributes.append(_average_attribute)
@@ -152,7 +152,7 @@ class PssData:
 
                 elif force <= medium_force:
                     force_levels.append('3LOW')
-                    
+
                 else:
                     assert False, "this is an invalid option, check the code"
             return force_levels
@@ -182,21 +182,21 @@ def read_pss_file_xls(xls_file):
         pss_data += df.values.tolist()
     except FileNotFoundError:
         pss_data = -1
-    
+
     return pss_data
 
 
 def pss_read_file(_date):
 
     _pss_file = PREFIX + ''.join([f'{int(_date.strftime("%Y")):04}', '_'
-                                  f'{int(_date.strftime("%m")):02}', '_' 
+                                  f'{int(_date.strftime("%m")):02}', '_'
                                   f'{int(_date.strftime("%d")):02}', '*.csv'])
     # pss_file = PREFIX + _date + '.xlsx'
 
     logger.debug(f'filename: {_pss_file}')
     _pss_file = glob.glob(_pss_file)
     logger.info(f'filename: {_pss_file}')
-    
+
     if len(_pss_file) != 1:
         pss_file = 'no_file_found'
     else:
@@ -217,7 +217,7 @@ def pss_read_file(_date):
 
 def get_vps_force_for_date_range(start_date, end_date, medium_force, high_force):
     '''  reads pss data for a date range and extracts vps and force
-         
+
          parameters:
          :start_date: start date (datetime date type)
          :end_date: end date (datetime date type)
@@ -247,7 +247,7 @@ def get_vps_force_for_date_range(start_date, end_date, medium_force, high_force)
 
 def get_vps_attribute_for_date_range(attribute, start_date, end_date):
     '''  reads pss data for a date range and extracts vps and viscosity
-         
+
          parameters:
          :start_date: start date (datetime date type)
          :end_date: end date (datetime date type)
@@ -271,4 +271,3 @@ def get_vps_attribute_for_date_range(attribute, start_date, end_date):
     logger.info(f'total length: {len(vp_gpd)}')
 
     return vp_gpd
-

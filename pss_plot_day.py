@@ -34,7 +34,7 @@ class PlotMap:
     '''  class contains method to plot the pss data, swath boundary, map and
          active patch
     '''
-    def __init__(self, start_date, maptype=None, swaths_selected=[]):
+    def __init__(self, start_date, maptype=None, swaths_selected=None):
         self.date = start_date
         self.maptype = maptype
         self.swaths_selected = swaths_selected

@@ -51,8 +51,11 @@ def daterange(start_date, end_date):
 
 def get_date_range():
     start_date = input(ASK_DATE)
+    if start_date in ['q', 'Q']:
+        exit()
+
     end_date = input(ASK_DATE)
-    if start_date in ['q', 'Q'] or end_date in ['q', 'Q']:
+    if end_date in ['q', 'Q']:
         exit()
 
     start_date = date(int(start_date[0:2])+2000,
@@ -70,7 +73,7 @@ def get_date_range():
     return start_date, end_date
 
 
-def swath_selection(swaths_selected=[]):
+def swath_selection(swaths_selected=None):
     ''' Selection of swath. Swath information taken from the file:
            Points+Lines_SW_24_stay.xlsx
         Manual inpput check if there exists at least one valid swath otherwise
@@ -90,7 +93,7 @@ def swath_selection(swaths_selected=[]):
     swath_df = pd.read_excel(swath_file, skiprows=5)
     valid_swaths = swath_df['Swath'].tolist()
     swaths = []
-    if swaths_selected == []:
+    if swaths_selected is None:
         valid = False
         while not valid:
             _swaths = [int(num[0]) for num in re.finditer(r'\d+', input(
@@ -250,7 +253,7 @@ class GeoData:
         self.geo_df['days_in_field'] = days_in_field
 
 
-    def filter_geo_data_by_swaths(self, swaths_selected=[], swaths_only=False,
+    def filter_geo_data_by_swaths(self, swaths_selected=None, swaths_only=False,
                                   source_boundary=False):
         ''' method to select geo_data depending on swaths selected
             Parameters:
@@ -328,7 +331,7 @@ def df_to_excel(df, filename, sheet_name='Sheet1', startrow=None,
     if 'engine' in to_excel_kwargs:
         to_excel_kwargs.pop('engine')
 
-    writer = pd.ExcelWriter(filename, engine='openpyxl')
+    writer = pd.ExcelWriter(filename, engine='openpyxl')  #pylint: disable=abstract-class-instantiated
 
     if append:
         try:

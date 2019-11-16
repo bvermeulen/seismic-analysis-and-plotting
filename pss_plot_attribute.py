@@ -1,15 +1,14 @@
-import set_gdal_pyproj_env_vars_and_logger
 import sys
-import numpy as np
-from datetime import timedelta
 import matplotlib.pyplot as plt
-from pyproj import Proj, transform
-from geopandas import GeoSeries
-from shapely.geometry import Polygon
+
+import set_gdal_pyproj_env_vars_and_logger  #pylint: disable=W0611
+from pyproj import Proj, transform  #pylint: disable=C0411
+from geopandas import GeoSeries  #pylint: disable=C0411
+from shapely.geometry import Polygon  #pylint: disable=C0411
 
 from pss_attr import pss_attr
 from pss_io import get_vps_attribute_for_date_range
-from geo_io import (GeoData, get_date_range, offset_transformation, 
+from geo_io import (GeoData, get_date_range, offset_transformation,
                     add_basemap_local, add_basemap_osm,
                     EPSG_31256_adapted, EPSG_OSM)
 from Utils.plogger import Logger, timed
@@ -31,10 +30,10 @@ logger = Logger.getlogger()
 nl = '\n'
 
 class PlotMap:
-    '''  class contains method to plot the pss data, swath boundary, map and 
+    '''  class contains method to plot the pss data, swath boundary, map and
          active patch
     '''
-    def __init__(self, maptype=None, swaths_selected=[]):
+    def __init__(self, maptype=None, swaths_selected=None):
         self.maptype = maptype
         self.swaths_selected = swaths_selected
 
@@ -49,9 +48,10 @@ class PlotMap:
         fig, ax = plt.subplots(figsize=figsize)
 
         # plot the swath boundary
-        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(swaths_selected=self.swaths_selected, 
-                                                                      swaths_only=True,
-                                                                      source_boundary=True,)
+        _, _, _, swaths_bnd_gpd = GeoData().filter_geo_data_by_swaths(
+            swaths_selected=self.swaths_selected,
+            swaths_only=True,
+            source_boundary=True,)
         swaths_bnd_gpd = self.convert_to_map(swaths_bnd_gpd)
         swaths_bnd_gpd.plot(ax=ax, facecolor='none', edgecolor=EDGECOLOR)
 
@@ -77,7 +77,8 @@ class PlotMap:
     def plot_attribute_data(self, attribute, start_date, end_date):
         '''  plot vp attribute data '''
 
-        vib_attribute_gpd = get_vps_attribute_for_date_range(attribute, start_date, end_date)
+        vib_attribute_gpd = get_vps_attribute_for_date_range(
+            attribute, start_date, end_date)
         vib_attribute_gpd = self.convert_to_map(vib_attribute_gpd)
 
         if vib_attribute_gpd.empty:
@@ -85,18 +86,18 @@ class PlotMap:
             return False
 
         # determine minumum and maximum
-        if pss_attr[attribute]['min'] != None:
+        if pss_attr[attribute]['min'] is not None:
             minimum = pss_attr[attribute]['min']
         else:
             minimum = vib_attribute_gpd[attribute].min()
 
-        if pss_attr[attribute]['max'] != None:
+        if pss_attr[attribute]['max'] is not None:
             maximum = pss_attr[attribute]['max']
-        else:    
+        else:
             maximum = vib_attribute_gpd[attribute].max()
         logger.info(f'minimum: {minimum}, maximum: {maximum}')
 
-        vib_attribute_gpd.plot(ax=self.ax, 
+        vib_attribute_gpd.plot(ax=self.ax,
                                column=attribute,
                                cmap=cmap,
                                vmin=minimum, vmax=maximum,
@@ -112,14 +113,14 @@ class PlotMap:
             https://stackoverflow.com/questions/36008648/colorbar-on-geopandas
         '''
         cax = self.fig.add_axes([0.9, 0.1, 0.03, 0.8])
-        sm = plt.cm.ScalarMappable(cmap=cmap, 
+        sm = plt.cm.ScalarMappable(cmap=cmap,
                                    norm=plt.Normalize(vmin=minimum, vmax=maximum))
-        sm._A = []
+        sm._A = []  #pylint: disable=protected-access
         self.fig.colorbar(sm, cax=cax)
 
     def on_click(self, event):
         # If we're using a tool on the toolbar, don't add/draw a point...
-        if self.fig.canvas.toolbar._active is not None:
+        if self.fig.canvas.toolbar._active is not None:  #pylint: disable=protected-access
             return
 
         if event.button == 1:
@@ -134,18 +135,18 @@ class PlotMap:
             x, y = transform(proj_map, proj_local, x_map, y_map)
         else:
             x, y = x_map, y_map
-        
-        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+
+        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0],
                     y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
-        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
                     y + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0], 
+        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
                     y + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0], 
+        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0],
                     y + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
- 
+
         # set corner points of patch and convert back to map coordinates
-        patch_polygon = Polygon([c1, c2, c3, c4, c1]) 
+        patch_polygon = Polygon([c1, c2, c3, c4, c1])
         patch_gpd = GeoSeries(patch_polygon)
         patch_gpd.crs = EPSG_31256_adapted
         patch_gpd = self.convert_to_map(patch_gpd)
@@ -180,7 +181,7 @@ def main(maptype, attribute):
     plotmap.show()
 
 if __name__ == "__main__":
-    '''  Interactive display of production. Background maps can be 
+    '''  Interactive display of production. Background maps can be
          selected by giving an argument.
          :arguments:
             first argument:
@@ -213,4 +214,3 @@ if __name__ == "__main__":
 
     logger.info(f'maptype: {maptype}, attribute: {attribute}')
     main(maptype, attribute)
-    
