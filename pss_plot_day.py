@@ -18,7 +18,7 @@ MARKERSIZE = 0.02
 EDGECOLOR = 'black'
 maptypes = ['local', 'osm']
 
-proj_map = Proj(init=f'epsg:{EPSG_OSM}')
+proj_map = Proj(f'epsg:{EPSG_OSM}')
 proj_local = Proj(EPSG_31256_adapted)
 
 ZOOM = 13
@@ -198,7 +198,7 @@ class PlotMap:
 
     def convert_to_map(self, df):
         if self.maptype == maptypes[1] and not df.empty:
-            df = df.to_crs(epsg=EPSG_OSM)
+            df = df.to_crs(f'epsg:{EPSG_OSM}')
         else:
             pass
         return df

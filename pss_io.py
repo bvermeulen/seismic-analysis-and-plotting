@@ -131,7 +131,7 @@ class PssData:
 
         # and make the dataframe
         geometry = [Point(xy) for xy in zip(vp_longs, vp_lats)]
-        self.vp_gpd = GeoDataFrame(crs={'init': f'epsg:{EPSG_WGS84}'}, geometry=geometry)
+        self.vp_gpd = GeoDataFrame(crs=f'epsg:{EPSG_WGS84}', geometry=geometry)
         self.vp_gpd = self.vp_gpd.to_crs(EPSG_31256_adapted)
         self.vp_gpd[attr_key] = vp_attributes
 
