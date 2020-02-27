@@ -1,12 +1,12 @@
 import set_gdal_pyproj_env_vars_and_logger
-import contextily as ctx
+from itertools import cycle
+from cycler import cycler
+import matplotlib.pyplot as plt
 import pandas as pd
 from geopandas import GeoDataFrame, GeoSeries
-from shapely.geometry import Point
-import matplotlib.pyplot as plt
-from cycler import cycler
-from itertools import cycle
+import contextily as ctx
 from Utils.plogger import Logger
+from shapely.geometry import Point
 from geo_io import (GeoData, get_date_range, daterange, swath_selection,
                     EPSG_31256_adapted, EPSG_OSM,
                     add_basemap_osm)
@@ -34,9 +34,9 @@ def plot_checked_stations():
             eastings = geo_df['LocalEasti'].tolist()
             northings = geo_df['LocalNorth'].tolist()
             gp_todo = geo_df['GP_TODO'].tolist()
-            
+
             assert len(eastings) == len(northings), "check easting/ northing"
-            
+
             error_df_day = pd.DataFrame({'Easting': eastings, 'Northing': northings, 'GP_TODO': gp_todo})
             error_df_day = error_df_day[error_df_day['GP_TODO'].str.contains('needed')]
             error_df = error_df.append(error_df_day, ignore_index=True)
@@ -44,8 +44,8 @@ def plot_checked_stations():
             colors = [color['color'] for _ in range(len(eastings))]
             geo_point = [Point(xy) for xy in zip(eastings, northings)]
             gdf = GeoDataFrame(crs=EPSG_31256_adapted, geometry=geo_point)
-            gdf = gdf.to_crs(epsg=EPSG_OSM)
-            gdf.plot(ax=ax, alpha=0.5, c=colors, markersize=MARKERSIZE, 
+            gdf = gdf.to_crs(f'epsg:{EPSG_OSM}')
+            gdf.plot(ax=ax, alpha=0.5, c=colors, markersize=MARKERSIZE,
                      label=_date.strftime("%d %b"))
 
     # plot the points with errors
@@ -55,13 +55,13 @@ def plot_checked_stations():
     colors = ['r' for _ in range(len(eastings))]
     if colors:
         gdf = GeoDataFrame(crs=EPSG_31256_adapted, geometry=geo_point)
-        gdf = gdf.to_crs(epsg=EPSG_OSM)
+        gdf = gdf.to_crs(f'epsg:{EPSG_OSM}')
         gdf.plot(ax=ax, alpha=0.5, c=colors, markersize=MARKERSIZE_ERROR, label='error')
 
 
     _, _, _, swaths_bnd_gdf = gd.filter_geo_data_by_swaths(swaths_only=True)
     swaths_bnd_gdf.crs = EPSG_31256_adapted
-    swaths_bnd_gdf = swaths_bnd_gdf.to_crs(epsg=EPSG_OSM)
+    swaths_bnd_gdf = swaths_bnd_gdf.to_crs(f'epsg:{EPSG_OSM}')
     swaths_bnd_gdf.plot(ax=ax, facecolor='none', edgecolor='black')
 
     # determine the plot area based on extent of swaths_bnd_gdf
@@ -75,7 +75,7 @@ def plot_checked_stations():
 
 
     ax.set_title(f'HDR status check', fontsize=20)
-    plt.legend()    
+    plt.legend()
     plt.show()
 
 
