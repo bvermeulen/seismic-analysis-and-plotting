@@ -89,9 +89,10 @@ def swath_selection(swaths_selected=None):
         :swaths_geo_polygon: union of selected swaths polygon in (easting, northing)
 
     '''
-    swath_file = r'.\Points+Lines_SW_24_stay.xlsx'
+    swath_file = r'./Points+Lines_SW_24_stay.xlsx'
     swath_df = pd.read_excel(swath_file, skiprows=5)
     valid_swaths = swath_df['Swath'].tolist()
+    
     swaths = []
     if swaths_selected is None:
         valid = False
