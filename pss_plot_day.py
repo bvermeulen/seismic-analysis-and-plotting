@@ -183,13 +183,7 @@ class PlotMap:
         patch_gpd = GeoSeries(patch_polygon)
         patch_gpd.crs = EPSG_31256_adapted
         patch_gpd = self.convert_to_map(patch_gpd)
-<<<<<<< HEAD
         patch_gpd.plot(ax=self.ax, facecolor='None', edgecolor='red', gid='patch')
-=======
-
-        # on windows you can do: facecolor=''
-        patch_gpd.plot(ax=self.ax, facecolor='none', edgecolor='red', gid='patch')
->>>>>>> 0e19d177bfd96ae998f30490443d95aa9dc2c50c
 
     def delete_from_map(self, gid):
         for plot_object in reversed(self.ax.collections):
