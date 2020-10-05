@@ -1,7 +1,8 @@
 import os
 from Utils.plogger import Logger
 
-'''  for some reason the GDAL_DATA and PROJ_LIB environment variables are not set properly
+'''  On windows:
+     for some reason the GDAL_DATA and PROJ_LIB environment variables are not set properly
      this module to be called at the very start of the program
 
      as this is the first module to be called logger is also set

@@ -10,7 +10,7 @@ from Utils.plogger import Logger
 from Utils.utils import average_with_outlier_removed
 
 
-PREFIX = r'RAW_PSS\PSS_'
+PREFIX = r'RAW_PSS/PSS_'
 LAT_MIN = 48
 LAT_MAX = 49
 LONG_MIN = 16
@@ -83,13 +83,17 @@ class PssData:
         vp_attributes = []
         record = 0
         _count = 0
+        _vp_lat = None
+        _vp_long = None
+        _vp_attribute = []
+        _count = 0
 
         # loop over the records in pss_data and assert they are sequential
         for _, pss in enumerate(self.pss_data):
             vp_lat = float(pss[pss_attr['Lat']['col']])
             vp_long = float(pss[pss_attr['Lon']['col']])
-            valid_coord = LAT_MIN < vp_lat and vp_lat < LAT_MAX and \
-                          LONG_MIN < vp_long and vp_long < LONG_MAX
+            valid_coord = (LAT_MIN < vp_lat < LAT_MAX and
+                           LONG_MIN < vp_long < LONG_MAX)
             if not valid_coord:
                 logger.debug(f'invalid coord: record: {record}: '
                              f'{(LAT_MIN, LAT_MAX, LONG_MIN, LONG_MAX)},'
