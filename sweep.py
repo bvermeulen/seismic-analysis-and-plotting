@@ -51,11 +51,10 @@ ax[4].set_xlim(0, 100)
 cf_phase_values, cf_freq, _ = ax[4].phase_spectrum(cf_reordered, Fs=df, window=window_none, visible=False, color='r')
 
 # check for modulus 2*pi and keep values between -pi and pi
-cf_phase_values = np.mod(cf_phase_values, 2*pi)
-cf_phase_values[cf_phase_values>pi] -= 2*pi
+cf_phase_values = np.mod(cf_phase_values, 2 * pi)
+cf_phase_values[cf_phase_values > pi] -= 2 * pi
 
 ax[4].plot(cf_freq, cf_phase_values)
 
 plt.tight_layout()
 plt.show()
-

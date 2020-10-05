@@ -16,7 +16,6 @@ import contextily as ctx
 from Utils.plogger import Logger
 from Utils.utils import string_to_value_or_nan
 
-
 PREFIX = r'autoseis_data\OUT_'
 geo_shapefile = './areas_shapes/geo_shapefile.shp'
 EPSG_31256_adapted = "+proj=tmerc +lat_0=0 +lon_0=16.33333333333333"\
@@ -28,6 +27,9 @@ EPSG_WGS84 = 4326
 
 ASK_DATE = 'date (YYMMDD) [q - quit]: '
 
+# start logger
+logformat = '%(asctime)s - %(levelname)s - %(message)s'
+Logger.set_logger('autoseis.log', logformat, 'INFO')
 logger = Logger.getlogger()
 
 def get_date():
