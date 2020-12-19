@@ -64,7 +64,7 @@ class PlotMap:
         if self.maptype == maptypes[0]:
             add_basemap_local(ax)
         elif self.maptype == maptypes[1]:
-            add_basemap_osm(ax, plot_area, ZOOM)
+            add_basemap_osm(ax)
         else:
             pass  # no basemap background
 

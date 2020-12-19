@@ -94,7 +94,7 @@ def swath_selection(swaths_selected=None):
     swath_file = r'./Points+Lines_SW_24_stay.xlsx'
     swath_df = pd.read_excel(swath_file, skiprows=5)
     valid_swaths = swath_df['Swath'].tolist()
-    
+
     swaths = []
     if swaths_selected is None:
         valid = False
@@ -140,22 +140,19 @@ def swath_selection(swaths_selected=None):
 
     return swaths, cascaded_union(swaths_pnt_polygon), cascaded_union(swaths_geo_polygon)
 
-# 26-8-2019": replaced url: http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'
-def add_basemap_osm(ax, plot_area, zoom,
-                    url='http://tile.stamen.com/terrain/{z}/{x}/{y}.png'):
-    '''  load the map in OpenStreetMap format from url
+# 26-8-2019: replaced url: http://tile.stamen.com/terrain/tileZ/tileX/tileY.png'
+# 19-12-2020: rewrite module
+def add_basemap_osm(ax, source=ctx.providers.OpenStreetMap.Mapnik):
+    '''  load the map in OpenStreetMap format from source
 
          Parameters:
          :input:
             ax: matplotlib axes
-            plot_area: extent of the map to be taken
-            zoom: zoom factor for map (13 seems to be good)
-            url: url with map information
+            source: see ctx providers
         :output: none
     '''
-    logger.info(f'url: {url}, plot_area: {plot_area}')
-    basemap, extent = ctx.bounds2img(*plot_area, zoom=zoom, url=url)
-    ax.imshow(basemap, extent=extent, interpolation='bilinear')
+    logger.info(f'basemap souce: {source}')
+    ctx.add_basemap(ax, source=source)
 
 
 def add_basemap_local(ax):

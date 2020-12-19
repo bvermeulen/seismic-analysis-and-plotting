@@ -68,7 +68,7 @@ def plot_checked_stations():
     xmin, xmax, ymin, ymax = ax.axis()
 
     if input('add basemap: [y/n]: ') in ['y', 'Y', 'yes', 'Yes', 'YES']:
-        add_basemap_osm(ax, (xmin, ymin, xmax, ymax), zoom=13)
+        add_basemap_osm(ax)
 
     # restore original x/y limits
     ax.axis((xmin, xmax, ymin, ymax))
