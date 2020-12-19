@@ -18,7 +18,7 @@ idna==2.8
 importlib-metadata==0.23
 jdcal==1.4.1
 joblib==0.14.0
-kiwisolver==1.1.0
+kiwisolver==1.1.0==6.2.1
 matplotlib==3.1.2
 mercantile==1.1.2
 more-itertools==7.2.0
@@ -27,7 +27,7 @@ numpy==1.17.4
 openpyxl==3.0.2
 packaging==19.2
 pandas==0.25.3
-Pillow==6.2.1
+Pillow>=7.1.0
 pluggy==0.13.1
 py==1.8.0
 pyparsing==2.4.5
