@@ -8,17 +8,19 @@ from pss_io import get_vps_force_for_date_range
 from geo_io import (
     GeoData, get_date, offset_transformation, add_basemap_local, add_basemap_osm,
     EPSG_31256_adapted, EPSG_OSM)
-from Utils.plogger import Logger, timed
+from Utils.plogger import Logger
 
 #pylint: disable=no-value-for-parameter
-#TODO 2020-12-19: adjust basemap when resizing the window
 
 MARKERSIZE = 0.04
 EDGECOLOR = 'black'
 maptypes = ['local', 'osm']
 
+# transformations from map to local and vice versa
 proj_map = pyproj.Proj(f'epsg:{EPSG_OSM}')
 proj_local = pyproj.Proj(EPSG_31256_adapted)
+t_map_local = pyproj.Transformer.from_proj(proj_map, proj_local)
+t_local_map = pyproj.Transformer.from_proj(proj_local, proj_map)
 
 FIGSIZE = (8, 8)
 MEDIUM_FORCE = 35
@@ -51,28 +53,16 @@ class PlotMap:
         connect = self.fig.canvas.mpl_connect
         connect('button_press_event', self.on_click)
         connect('key_press_event', self.on_key)
+        connect('resize_event', self.on_resize)
 
-        self.date_text_x, self.date_text_y = 0.80, 0.95
-
-        #define artists
-        self.vib_artists = {}
-        for force_level, force_attr in force_attrs.items():
-            self.vib_artists[force_level] = self.ax.scatter(
-            [0,], [0,], s=MARKERSIZE, marker='o', facecolor=force_attr[0],)
-        self.date_artist = self.ax.text(
-            self.date_text_x, self.date_text_y, '', transform=self.ax.transAxes,)
-        self.actrecv_artist = Polygon(np.array(
-            [[0, 0]]), closed=True, edgecolor='red', fill=False)
-        self.ax.add_patch(self.actrecv_artist)
-        self.cp_artist = Circle((0, 0), radius=SOURCE_CENTER, fc=SOURCE_COLOR)
-        self.ax.add_patch(self.cp_artist)
+        self.resize_timer = self.fig.canvas.new_timer(interval=250)
+        self.resize_timer.add_callback(self.blit)
 
         # start event loop
+        self.artists_on_stage = False
         self.background = None
         self.show(block=False)
-        print('wait until plot will show data ...')
-        plt.pause(1)
-        self.plot_pss_data(1)
+        plt.pause(0.1)
         self.blit()
 
     def setup_map(self, figsize):
@@ -105,7 +95,33 @@ class PlotMap:
 
         return fig, ax
 
-    # @timed(logger)
+    def setup_artists(self):
+        date_text_x, date_text_y = 0.80, 0.95
+        self.vib_artists = {}
+        for force_level, force_attr in force_attrs.items():
+            self.vib_artists[force_level] = self.ax.scatter(
+                [0,], [0,], s=MARKERSIZE, marker='o', facecolor=force_attr[0],)
+        self.date_artist = self.ax.text(
+            date_text_x, date_text_y, '', transform=self.ax.transAxes,)
+        self.actrecv_artist = Polygon(np.array(
+            [[0, 0]]), closed=True, edgecolor='red', fill=False)
+        self.ax.add_patch(self.actrecv_artist)
+        self.cp_artist = Circle((0, 0), radius=SOURCE_CENTER, fc=SOURCE_COLOR)
+        self.ax.add_patch(self.cp_artist)
+        self.artists_on_stage = True
+
+    def remove_artists(self):
+        if self.artists_on_stage:
+            for _, vib_artist in self.vib_artists.items():
+                vib_artist.remove()
+            self.date_artist.remove()
+            self.actrecv_artist.remove()
+            self.cp_artist.remove()
+            self.artists_on_stage = False
+
+        else:
+            pass
+
     def init_pss_dataframes(self):
         dates = [self.date - timedelta(1), self.date, self.date + timedelta(1)]
         for i, _date in enumerate(dates):
@@ -114,7 +130,6 @@ class PlotMap:
             _pss_gpd = self.convert_to_map(_pss_gpd)
             self.pss_dataframes[i] = _pss_gpd
 
-    # @timed(logger)
     def update_right_pss_dataframes(self):
         self.pss_dataframes[0] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[2]
@@ -123,7 +138,6 @@ class PlotMap:
         _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[2] = _pss_gpd
 
-    # @timed(logger)
     def update_left_pss_dataframes(self):
         self.pss_dataframes[2] = self.pss_dataframes[1]
         self.pss_dataframes[1] = self.pss_dataframes[0]
@@ -132,7 +146,6 @@ class PlotMap:
         _pss_gpd = self.convert_to_map(_pss_gpd)
         self.pss_dataframes[0] = _pss_gpd
 
-    @timed(logger)
     def plot_pss_data(self, index):
         '''  plot pss force data in three ranges LOW, MEDIUM, HIGH '''
         vib_pss_gpd = self.pss_dataframes[index]
@@ -145,13 +158,55 @@ class PlotMap:
                     self.vib_artists[force_level].set_offsets(pts)
 
                 else:
-                    self.vib_artists[force_level].set_offsets([[0,0]])
+                    self.vib_artists[force_level].set_offsets([[0, 0]])
 
         else:
             for force_level in force_attrs:
-                self.vib_artists[force_level].set_offsets([[0,0]])
+                self.vib_artists[force_level].set_offsets([[0, 0]])
 
-    @timed(logger)
+    def add_remove_actrecv(self, x_map, y_map, add=True):
+        if x_map is None or y_map is None:
+            return
+
+        # convert map point to local coordinate
+        if self.maptype == maptypes[1]:
+            x, y = t_map_local.transform(x_map, y_map)
+        else:
+            x, y = x_map, y_map
+
+        cp = tuple([x, y])
+        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0],
+                    y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
+        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
+                    y + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
+        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
+                    y + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
+        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0],
+                    y + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
+
+        # set corner points of active receivers and convert back to map coordinates
+        if self.maptype == maptypes[1]:
+            cp = t_local_map.transform(cp[0], cp[1])
+            c1 = t_local_map.transform(c1[0], c1[1])
+            c2 = t_local_map.transform(c2[0], c2[1])
+            c3 = t_local_map.transform(c3[0], c3[1])
+            c4 = t_local_map.transform(c4[0], c4[1])
+
+        if add:
+            self.actrecv_artist.set_xy(np.array([c1, c2, c3, c4]))
+            self.cp_artist.center = cp
+
+        else:
+            self.actrecv_artist.set_xy(np.array([c1]))
+            self.cp_artist.center = (0, 0)
+
+    def convert_to_map(self, df):
+        if self.maptype == maptypes[1] and not df.empty:
+            df = df.to_crs(f'epsg:{EPSG_OSM}')
+        else:
+            pass
+        return df
+
     def on_click(self, event):
         # If we're using a tool on the toolbar, don't add/draw a point...
         if self.fig.canvas.toolbar.mode != '':
@@ -167,7 +222,6 @@ class PlotMap:
 
         self.blit()
 
-    @timed(logger)
     def on_key(self, event):
         if event.key not in ['right', 'left', ' ']:
             return
@@ -188,58 +242,27 @@ class PlotMap:
 
         self.blit()
 
-    def add_remove_actrecv(self, x_map, y_map, add=True):
-        if x_map is None or y_map is None:
-            return
+    def on_timer(self):
+        print('on timer ...')
+        self.timer.stop()
+        self.blit()
 
-        # convert map point to local coordinate
-        if self.maptype == maptypes[1]:
-            x, y = pyproj.transform(proj_map, proj_local, x_map, y_map)
-        else:
-            x, y = x_map, y_map
+    def on_resize(self, event):
+        self.resize_timer.start()
+        self.remove_artists()
+        self.background = None
 
-        cp = tuple([x, y])
-        c1 = tuple([x + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[0],
-                    y + offset_transformation(OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
-        c2 = tuple([x + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
-                    y + offset_transformation(OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c3 = tuple([x + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[0],
-                    y + offset_transformation(-OFFSET_INLINE, -OFFSET_CROSSLINE)[1]])
-        c4 = tuple([x + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[0],
-                    y + offset_transformation(-OFFSET_INLINE, OFFSET_CROSSLINE)[1]])
-
-        # set corner points of active receivers and convert back to map coordinates
-        if self.maptype == maptypes[1]:
-            cp = pyproj.transform(proj_local, proj_map, cp[0], cp[1])
-            c1 = pyproj.transform(proj_local, proj_map, c1[0], c1[1])
-            c2 = pyproj.transform(proj_local, proj_map, c2[0], c2[1])
-            c3 = pyproj.transform(proj_local, proj_map, c3[0], c3[1])
-            c4 = pyproj.transform(proj_local, proj_map, c4[0], c4[1])
-
-        if add:
-            self.actrecv_artist.set_xy(np.array([c1, c2, c3, c4]))
-            self.cp_artist.center = cp
-
-        else:
-            self.actrecv_artist.set_xy(np.array([c1]))
-            self.cp_artist.center = (0, 0)
-
-    def convert_to_map(self, df):
-        if self.maptype == maptypes[1] and not df.empty:
-            df = df.to_crs(f'epsg:{EPSG_OSM}')
-        else:
-            pass
-        return df
-
-    @timed(logger)
     def blit(self):
         if self.background is None:
             self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
-            print('almost done ...')
+            print('wait until data is shown on the map ...')
+            self.setup_artists()
+            self.plot_pss_data(1)
             self.fig.canvas.draw()
             print(
                 'go ahead use arrow keys to toggle date, '
                 'click canvas for active receivers')
+            self.resize_timer.stop()
 
         else:
             self.fig.canvas.restore_region(self.background)
