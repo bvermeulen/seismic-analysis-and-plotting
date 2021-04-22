@@ -29,7 +29,7 @@ packaging==19.2
 pandas==0.25.3
 Pillow>=7.1.0
 pluggy==0.13.1
-py==1.8.0
+py==1.10.0
 pyparsing==2.4.5
 pyproj==2.4.1
 pyshp==2.1.0
