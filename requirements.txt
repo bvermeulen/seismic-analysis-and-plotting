@@ -17,7 +17,7 @@ geopy==1.20.0
 idna==2.8
 importlib-metadata==0.23
 jdcal==1.4.1
-joblib==0.14.0
+joblib==1.2.0
 kiwisolver==1.1.0==6.2.1
 matplotlib==3.1.2
 mercantile==1.1.2
